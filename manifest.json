@@ -4,7 +4,7 @@
   "description": "Your daily skincare, supplement & workout tracker",
   "start_url": "/",
   "scope": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#080808",
   "theme_color": "#e8281e",
