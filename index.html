@@ -1376,13 +1376,13 @@ async function requestNotifPermission() {
   if (perm === 'granted') {
     btn.textContent = '✓ Notifications Enabled';
     btn.className = 'notif-btn granted';
-    desc.textContent = '✅ You'll get reminders before each protocol block. Keep the app open or in the background.';
+    desc.textContent = "✅ Reminders are active. Keep the app open in the background for them to fire.";
     scheduleNotifications();
     updateNotifDots();
   } else if (perm === 'denied') {
     btn.textContent = 'Blocked — Enable in Browser Settings';
     btn.className = 'notif-btn denied';
-    desc.textContent = '⚠️ Notifications are blocked. Go to Chrome Settings → Site Settings → Notifications to allow this site.';
+    desc.textContent = "⚠️ Notifications blocked. Go to Chrome Settings > Site Settings > Notifications to allow this site.";
   }
 }
 
@@ -1415,7 +1415,7 @@ function updateNotifUI() {
   } else if (perm === 'denied') {
     btn.textContent = 'Blocked — Enable in Browser Settings';
     btn.className = 'notif-btn denied';
-    desc.textContent = '⚠️ Notifications are blocked. Enable in Chrome → Settings → Site Settings → Notifications.';
+    desc.textContent = "⚠️ Notifications blocked. Enable in Chrome > Settings > Site Settings > Notifications.";
   }
 }
 
