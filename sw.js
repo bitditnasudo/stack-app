@@ -2,7 +2,7 @@
 // Handles background sync and scheduled notifications
 
 const CACHE_NAME = 'stack-v1';
-const ASSETS = ['/', '/index.html', '/manifest.json'];
+const ASSETS = ['./', './index.html', './manifest.json', './sw.js'];
 
 // ── Install: cache the app shell ──────────────────────────────────────────────
 self.addEventListener('install', e => {
