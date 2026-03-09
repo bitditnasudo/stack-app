@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#e8281e">
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="./manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>STACK — Daily Routine</title>
@@ -1032,10 +1032,8 @@ function buildTasks(active, workout) {
   tasks.push({ id:'sk_am_spf', block:'morning', name:'ISDIN Sunscreen', detail:'Last step — every single day without exception ☀️', tags:['skin','daily'], category:'skin', wait: null });
 
   // ─── AFTERNOON ───
-  tasks.push({ id:'tadalafil', block:'afternoon', name:'Tadalafil', detail: workout
-    ? 'As prescribed — take before heading to gym\n⏰ Target: ~5:00–6:00 PM'
-    : 'As prescribed — take in the afternoon\n⏰ Target: ~5:00–6:00 PM',
-    tags:['daily','supp'], category:'supp', wait: null });
+  const tadalafil_detail = workout ? 'As prescribed — take before heading to gym\n⏰ Target: ~5:00–6:00 PM' : 'As prescribed — take in the afternoon\n⏰ Target: ~5:00–6:00 PM';
+  tasks.push({ id:'tadalafil', block:'afternoon', name:'Tadalafil', detail: tadalafil_detail, tags:['daily','supp'], category:'supp', wait: null });
 
   // ─── PRE-WORKOUT (workout days only, ~6:30–7:00 PM) ───
   if (workout) {
@@ -1273,7 +1271,7 @@ function switchPage(name) {
 
 // Register service worker
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').then(reg => {
+  navigator.serviceWorker.register('./sw.js').then(reg => {
     console.log('SW registered:', reg.scope);
   }).catch(err => console.warn('SW failed:', err));
 }
@@ -1347,8 +1345,8 @@ async function scheduleNotifications() {
       reg.showNotification(n.title, {
         body: n.body,
         tag: n.id,
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
+        icon: './icon-192.png',
+        badge: './icon-192.png',
         vibrate: [200, 100, 200, 100, 200],
         requireInteraction: false,
       });
@@ -1429,10 +1427,15 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ======== INIT ========
-renderTasks();
-updateOverview();
-saveChecked(); // Ensure today's total is saved
-updateNotifUI();
+try {
+  renderTasks();
+  updateOverview();
+  saveChecked();
+  updateNotifUI();
+} catch(e) {
+  document.getElementById('taskContent').innerHTML =
+    '<div style="padding:30px;color:#e8281e;font-family:monospace;font-size:12px;word-break:break-all;">ERROR: ' + e.message + '<br><br>' + e.stack + '</div>';
+}
 </script>
 </body>
 </html>
