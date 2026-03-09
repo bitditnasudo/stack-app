@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#e8281e">
+<link rel="manifest" href="/manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>STACK — Daily Routine</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080808;
+    --surface: #0f0f0f;
+    --surface2: #161616;
+    --border: #ffffff0d;
+    --border2: #ffffff18;
+    --accent: #e8281e;
+    --accent-glow: #e8281e55;
+    --accent2: #c0392b;
+    --accent3: #ff6b35;
+    --steel: #8a9bb0;
+    --text: #ede8e3;
+    --muted: #5a5a60;
+    --rest-color: #4a7fa5;
+    --active-color: #e8281e;
+    --gold: #c9a84c;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding-bottom: 100px;
+  }
+
+  /* HERO BANNER */
+  .hero-banner {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    overflow: hidden;
+    background: #080808;
+  }
+
+  .hero-svg {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    height: 100%;
+  }
+
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      #08080800 0%,
+      #08080800 40%,
+      #080808cc 80%,
+      #080808ff 100%
+    );
+  }
+
+  .hero-title {
+    position: absolute;
+    bottom: 18px;
+    left: 20px;
+    right: 20px;
+  }
+
+  .hero-appname {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 42px;
+    letter-spacing: -2px;
+    color: var(--text);
+    line-height: 1;
+    text-shadow: 0 0 40px #e8281e66;
+  }
+
+  .hero-appname span { color: var(--accent); }
+
+  .hero-sub {
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--steel);
+    margin-top: 4px;
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  .hero-glow {
+    animation: pulseGlow 3s ease-in-out infinite;
+  }
+
+  /* HEADER */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(8,8,8,0.96);
+    border-bottom: 1px solid #e8281e22;
+    padding: 14px 20px 12px;
+    backdrop-filter: blur(20px);
+  }
+
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .app-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    line-height: 1;
+    text-shadow: 0 0 14px var(--accent-glow);
+  }
+
+  .day-badge {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: 20px;
+    border: 1px solid;
+  }
+
+  .day-badge.active { color: var(--active-color); border-color: var(--active-color); background: #e8281e14; }
+  .day-badge.rest { color: var(--rest-color); border-color: var(--rest-color); background: #4a7fa514; }
+
+  .date-line {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* PROGRESS BAR */
+  .progress-bar {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 2px;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .progress-text {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* TIME BLOCKS */
+  .time-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 20px 10px;
+  }
+
+  .time-label span {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--steel);
+  }
+
+  .time-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .time-clock {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 0 20px 6px;
+  }
+
+  /* TASK CARD */
+  .task-card {
+    margin: 0 16px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .task-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    border-radius: 3px 0 0 3px;
+    background: var(--border);
+    transition: background 0.2s;
+  }
+
+  .task-card.done::before { background: linear-gradient(180deg, var(--accent), var(--accent2)); box-shadow: 0 0 8px var(--accent-glow); }
+  .task-card.done { background: #e8281e08; border-color: #e8281e28; }
+
+  .task-card:active { transform: scale(0.98); }
+
+  .check-ring {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+    transition: all 0.25s ease;
+  }
+
+  .task-card.done .check-ring {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+
+  .checkmark {
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .task-card.done .checkmark { opacity: 1; transform: scale(1); }
+
+  .task-info { flex: 1; min-width: 0; }
+
+  .task-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text);
+    transition: color 0.2s;
+  }
+
+  .task-card.done .task-name { color: var(--muted); text-decoration: line-through; }
+
+  .task-detail {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  .task-tag {
+    display: inline-block;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-top: 6px;
+    margin-right: 4px;
+  }
+
+  .tag-supp { background: #e8281e14; color: var(--accent); border: 1px solid #e8281e35; }
+  .tag-skin { background: #ff6b3518; color: var(--accent3); border: 1px solid #ff6b3530; }
+  .tag-pre { background: #f0a04d18; color: #f0a04d; border: 1px solid #f0a04d30; }
+  .tag-post { background: #4df0c818; color: var(--accent2); border: 1px solid #4df0c830; }
+  .tag-daily { background: #ffffff10; color: var(--muted); border: 1px solid #ffffff18; }
+
+  /* SECTION */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 26px 20px 4px;
+  }
+
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  .section-icon { font-size: 16px; }
+  .section-count { font-size: 12px; color: var(--muted); font-weight: 400; font-family: 'DM Mono', monospace; }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 10px 0 24px;
+    z-index: 200;
+  }
+
+  .nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 6px 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+
+  .nav-btn.active { color: var(--accent); text-shadow: 0 0 10px var(--accent-glow); }
+  .nav-btn span { font-size: 20px; line-height: 1; }
+
+  /* PAGES */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* OVERVIEW */
+  .overview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 16px 16px 0;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::after {
+    content: "";
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #e8281e55, transparent);
+  }
+
+  .stat-number {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 32px;
+    color: var(--accent);
+    line-height: 1;
+    text-shadow: 0 0 20px var(--accent-glow);
+  }
+
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* STREAK CARD */
+  .streak-card {
+    margin: 12px 16px 0;
+    background: var(--surface);
+    border: 1px solid #e8281e20;
+    border-radius: 14px;
+    padding: 20px;
+  }
+
+  .streak-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  .week-dots {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .week-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .week-day-name {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .week-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+  }
+
+  .week-dot.today { border-color: var(--accent); color: var(--accent); }
+  .week-dot.complete { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 10px var(--accent-glow); }
+  .week-dot.partial { border-color: var(--accent); opacity: 0.5; }
+  .week-dot.active-day { border-color: var(--active-color); }
+  .week-dot.rest-day { border-color: var(--rest-color); }
+
+  /* RING */
+  .ring-wrap {
+    margin: 16px 16px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .ring-svg { flex-shrink: 0; }
+
+  .ring-info { flex: 1; }
+
+  .ring-pct {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 36px;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent-glow);
+    line-height: 1;
+  }
+
+  .ring-label { font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: 1px; }
+
+  .ring-breakdown { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+
+  .rb-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+  .rb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .rb-name { color: var(--muted); flex: 1; }
+  .rb-val { color: var(--text); }
+
+  /* RESET */
+  .reset-btn {
+    margin: 20px 16px 0;
+    width: calc(100% - 32px);
+    padding: 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .reset-btn:active { border-color: var(--accent3); color: var(--accent3); }
+
+  /* COMPLETE TOAST */
+  .toast {
+    position: fixed;
+    top: -80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 12px 24px;
+    border-radius: 40px;
+    z-index: 999;
+    transition: top 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    white-space: nowrap;
+  }
+
+  .toast.show { top: 20px; }
+
+  /* ANIMATIONS */
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .task-card { animation: fadeSlide 0.3s ease both; }
+  .task-card:nth-child(1) { animation-delay: 0.03s; }
+  .task-card:nth-child(2) { animation-delay: 0.06s; }
+  .task-card:nth-child(3) { animation-delay: 0.09s; }
+  .task-card:nth-child(4) { animation-delay: 0.12s; }
+  .task-card:nth-child(5) { animation-delay: 0.15s; }
+  .task-card:nth-child(6) { animation-delay: 0.18s; }
+
+  .wait-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--gold);
+    background: #c9a84c12;
+    border: 1px solid #c9a84c30;
+    border-radius: 8px;
+    padding: 4px 10px;
+    letter-spacing: 0.3px;
+  }
+
+  .task-card.done .wait-pill { opacity: 0.3; }
+    margin: 0 16px 10px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+
+  /* NOTIFICATION PAGE */
+  .notif-card {
+    background: var(--surface);
+    border: 1px solid #e8281e30;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .notif-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+  .notif-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+  .notif-btn {
+    width: 100%;
+    padding: 13px;
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 20px var(--accent-glow);
+  }
+  .notif-btn:active { transform: scale(0.97); }
+  .notif-btn.granted { background: #1a3a1a; color: #4caf50; box-shadow: none; border: 1px solid #4caf5040; }
+  .notif-btn.denied { background: #2a1a1a; color: var(--muted); box-shadow: none; border: 1px solid #ffffff10; cursor: not-allowed; }
+
+  .notif-schedule-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--steel);
+    margin-bottom: 12px;
+  }
+
+  .notif-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+  }
+
+  .workout-only {
+    border-color: #e8281e20;
+  }
+
+  .notif-item-time {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--accent);
+    min-width: 52px;
+    text-shadow: 0 0 10px var(--accent-glow);
+  }
+
+  .notif-item-info { flex: 1; }
+
+  .notif-item-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .notif-item-sub {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    letter-spacing: 0.3px;
+  }
+
+  .notif-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border2);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .notif-dot.active {
+    background: #4caf50;
+    box-shadow: 0 0 8px #4caf5066;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- ============ HERO BANNER ============ -->
+<div class="hero-banner">
+  <svg class="hero-svg" viewBox="0 0 400 220" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background deep gradient -->
+    <defs>
+      <radialGradient id="bgGrad" cx="50%" cy="80%" r="70%">
+        <stop offset="0%" stop-color="#1a0505"/>
+        <stop offset="100%" stop-color="#080808"/>
+      </radialGradient>
+      <radialGradient id="redGlow" cx="50%" cy="100%" r="50%">
+        <stop offset="0%" stop-color="#e8281e" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="#e8281e" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="blur4">
+        <feGaussianBlur stdDeviation="4"/>
+      </filter>
+      <filter id="blur2">
+        <feGaussianBlur stdDeviation="2"/>
+      </filter>
+    </defs>
+
+    <rect width="400" height="220" fill="url(#bgGrad)"/>
+    <ellipse cx="200" cy="220" rx="220" ry="100" fill="url(#redGlow)" class="hero-glow"/>
+
+    <!-- Abstract muscle fiber / anatomy lines in background -->
+    <g opacity="0.07" stroke="#e8281e" stroke-width="0.8" fill="none">
+      <!-- deltoid arc lines -->
+      <path d="M 60 180 Q 90 120 130 100 Q 160 85 180 90"/>
+      <path d="M 55 185 Q 88 122 128 102 Q 158 87 178 92"/>
+      <path d="M 50 190 Q 85 125 125 105 Q 155 90 175 95"/>
+      <!-- right side mirror -->
+      <path d="M 340 180 Q 310 120 270 100 Q 240 85 220 90"/>
+      <path d="M 345 185 Q 312 122 272 102 Q 242 87 222 92"/>
+      <path d="M 350 190 Q 315 125 275 105 Q 245 90 225 95"/>
+      <!-- torso striations -->
+      <path d="M 160 140 Q 175 155 200 158 Q 225 155 240 140"/>
+      <path d="M 158 148 Q 174 163 200 166 Q 226 163 242 148"/>
+      <path d="M 156 156 Q 173 171 200 174 Q 227 171 244 156"/>
+      <!-- pec lines -->
+      <path d="M 145 110 Q 165 118 185 115 Q 195 112 200 108"/>
+      <path d="M 255 110 Q 235 118 215 115 Q 205 112 200 108"/>
+    </g>
+
+    <!-- Main muscular torso silhouette (stylized) -->
+    <g opacity="0.18">
+      <!-- Torso fill -->
+      <path d="
+        M 200 30
+        C 215 30 235 38 248 52
+        C 262 68 268 80 272 95
+        C 278 115 282 130 278 148
+        C 274 165 268 175 260 182
+        C 248 192 228 196 220 198
+        L 200 200
+        L 180 198
+        C 172 196 152 192 140 182
+        C 132 175 126 165 122 148
+        C 118 130 122 115 128 95
+        C 132 80 138 68 152 52
+        C 165 38 185 30 200 30Z
+      " fill="#e8281e" opacity="0.15"/>
+
+      <!-- Neck -->
+      <path d="M 190 20 Q 190 30 188 38 L 212 38 Q 210 30 210 20Z" fill="#c0392b" opacity="0.3"/>
+
+      <!-- Trap lines -->
+      <path d="M 188 38 Q 160 45 148 55 Q 140 62 140 70 L 155 68 Q 162 52 188 44Z" fill="#c0392b" opacity="0.25"/>
+      <path d="M 212 38 Q 240 45 252 55 Q 260 62 260 70 L 245 68 Q 238 52 212 44Z" fill="#c0392b" opacity="0.25"/>
+
+      <!-- Pec left -->
+      <path d="M 152 72 Q 158 80 168 90 Q 182 100 196 100 L 196 78 Q 180 72 166 68Z" fill="#e8281e" opacity="0.2"/>
+      <!-- Pec right -->
+      <path d="M 248 72 Q 242 80 232 90 Q 218 100 204 100 L 204 78 Q 220 72 234 68Z" fill="#e8281e" opacity="0.2"/>
+
+      <!-- Abs (6 blocks) -->
+      <rect x="188" y="104" width="10" height="12" rx="2" fill="#e8281e" opacity="0.3"/>
+      <rect x="202" y="104" width="10" height="12" rx="2" fill="#e8281e" opacity="0.3"/>
+      <rect x="188" y="120" width="10" height="12" rx="2" fill="#e8281e" opacity="0.3"/>
+      <rect x="202" y="120" width="10" height="12" rx="2" fill="#e8281e" opacity="0.3"/>
+      <rect x="188" y="136" width="10" height="12" rx="2" fill="#e8281e" opacity="0.3"/>
+      <rect x="202" y="136" width="10" height="12" rx="2" fill="#e8281e" opacity="0.3"/>
+
+      <!-- Linea alba -->
+      <line x1="200" y1="100" x2="200" y2="152" stroke="#e8281e" stroke-width="1.5" opacity="0.2"/>
+
+      <!-- Left arm bicep -->
+      <path d="
+        M 148 68 Q 132 72 122 86
+        C 114 98 112 112 116 124
+        C 120 136 128 142 136 140
+        C 142 138 146 130 148 120
+        C 150 110 150 95 152 82Z
+      " fill="#c0392b" opacity="0.25"/>
+
+      <!-- Right arm bicep -->
+      <path d="
+        M 252 68 Q 268 72 278 86
+        C 286 98 288 112 284 124
+        C 280 136 272 142 264 140
+        C 258 138 254 130 252 120
+        C 250 110 250 95 248 82Z
+      " fill="#c0392b" opacity="0.25"/>
+
+      <!-- Left forearm -->
+      <path d="M 116 126 Q 110 138 108 155 Q 108 165 114 168 Q 120 170 126 164 Q 130 156 134 142Z" fill="#b03020" opacity="0.2"/>
+      <!-- Right forearm -->
+      <path d="M 284 126 Q 290 138 292 155 Q 292 165 286 168 Q 280 170 274 164 Q 270 156 266 142Z" fill="#b03020" opacity="0.2"/>
+    </g>
+
+    <!-- Glowing red accent lines (muscle definition) -->
+    <g opacity="0.5" stroke="#e8281e" stroke-width="1" fill="none" filter="url(#blur2)">
+      <path d="M 196 100 L 196 152"/>
+      <path d="M 204 100 L 204 152"/>
+      <path d="M 188 116 L 212 116"/>
+      <path d="M 188 132 L 212 132"/>
+    </g>
+
+    <!-- Top red accent bar -->
+    <rect x="0" y="0" width="400" height="2" fill="url(#redBarGrad)" opacity="0.8"/>
+    <defs>
+      <linearGradient id="redBarGrad" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#080808"/>
+        <stop offset="30%" stop-color="#e8281e"/>
+        <stop offset="70%" stop-color="#e8281e"/>
+        <stop offset="100%" stop-color="#080808"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Scanline texture overlay -->
+    <g opacity="0.03">
+      <line x1="0" y1="10" x2="400" y2="10" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="20" x2="400" y2="20" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="30" x2="400" y2="30" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="40" x2="400" y2="40" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="50" x2="400" y2="50" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="60" x2="400" y2="60" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="70" x2="400" y2="70" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="80" x2="400" y2="80" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="90" x2="400" y2="90" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="100" x2="400" y2="100" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="110" x2="400" y2="110" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="120" x2="400" y2="120" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="130" x2="400" y2="130" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="140" x2="400" y2="140" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="150" x2="400" y2="150" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="160" x2="400" y2="160" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="170" x2="400" y2="170" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="180" x2="400" y2="180" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="190" x2="400" y2="190" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="200" x2="400" y2="200" stroke="#fff" stroke-width="1"/>
+      <line x1="0" y1="210" x2="400" y2="210" stroke="#fff" stroke-width="1"/>
+    </g>
+  </svg>
+  <div class="hero-overlay"></div>
+  <div class="hero-title">
+    <div class="hero-appname">ST<span>A</span>CK</div>
+    <div class="hero-sub">Daily Protocol Tracker</div>
+  </div>
+</div>
+
+<!-- ============ HEADER ============ -->
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="app-name">STACK</div>
+      <div class="date-line" id="dateDisplay">—</div>
+    </div>
+    <div class="day-badge" id="dayBadge">—</div>
+  </div>
+  <div class="progress-bar">
+    <div class="progress-track">
+      <div class="progress-fill" id="mainProgress" style="width:0%"></div>
+    </div>
+    <div class="progress-text" id="progressText">0 / 0 done</div>
+  </div>
+</div>
+
+<!-- ============ PAGE: TODAY ============ -->
+<div class="page active" id="page-today">
+  <div id="taskContent"></div>
+</div>
+
+<!-- ============ PAGE: OVERVIEW ============ -->
+<div class="page" id="page-overview">
+  <div class="section-header">
+    <div class="section-title"><span class="section-icon">📊</span> Today's Stats</div>
+  </div>
+
+  <div class="ring-wrap">
+    <svg class="ring-svg" width="90" height="90" viewBox="0 0 90 90">
+      <circle cx="45" cy="45" r="36" fill="none" stroke="#ffffff0a" stroke-width="8"/>
+      <circle id="ringCircle" cx="45" cy="45" r="36" fill="none" stroke="#e8281e" stroke-width="8"
+        stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="226.2"
+        transform="rotate(-90 45 45)" style="transition: stroke-dashoffset 0.8s ease;"/>
+    </svg>
+    <div class="ring-info">
+      <div class="ring-pct" id="ringPct">0%</div>
+      <div class="ring-label">OVERALL COMPLETION</div>
+      <div class="ring-breakdown">
+        <div class="rb-row">
+          <div class="rb-dot" style="background:#e8281e"></div>
+          <div class="rb-name">Supplements</div>
+          <div class="rb-val" id="rbSupp">0/0</div>
+        </div>
+        <div class="rb-row">
+          <div class="rb-dot" style="background:#f04d8a"></div>
+          <div class="rb-name">Skincare</div>
+          <div class="rb-val" id="rbSkin">0/0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overview-grid">
+    <div class="stat-card">
+      <div class="stat-number" id="statDone">0</div>
+      <div class="stat-label">Completed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="statLeft" style="color:var(--muted)">0</div>
+      <div class="stat-label">Remaining</div>
+    </div>
+  </div>
+
+  <div class="streak-card">
+    <div class="streak-title">This Week</div>
+    <div class="week-dots" id="weekDots"></div>
+  </div>
+
+  <button class="reset-btn" onclick="resetDay()">⟳ Reset Today's Tasks</button>
+</div>
+
+<!-- ============ PAGE: NOTIFICATIONS ============ -->
+<div class="page" id="page-notify">
+  <div class="section-header">
+    <div class="section-title"><span class="section-icon">🔔</span> Reminders</div>
+  </div>
+  <div style="padding: 0 16px;">
+    <div class="notif-card" id="notifStatus">
+      <div class="notif-title">Push Notifications</div>
+      <div class="notif-desc" id="notifDesc">Enable to get reminders before each part of your protocol.</div>
+      <button class="notif-btn" id="notifBtn" onclick="requestNotifPermission()">Enable Notifications</button>
+    </div>
+
+    <div class="notif-schedule-title">Daily Schedule</div>
+
+    <div class="notif-item">
+      <div class="notif-item-time">6:20 AM</div>
+      <div class="notif-item-info">
+        <div class="notif-item-name">Morning Skincare</div>
+        <div class="notif-item-sub">10 min heads-up before your 6:30 AM routine</div>
+      </div>
+      <div class="notif-dot" id="dot-morning"></div>
+    </div>
+
+    <div class="notif-item">
+      <div class="notif-item-time">4:50 PM</div>
+      <div class="notif-item-info">
+        <div class="notif-item-name">Tadalafil</div>
+        <div class="notif-item-sub">10 min heads-up — take before gym</div>
+      </div>
+      <div class="notif-dot" id="dot-tadalafil"></div>
+    </div>
+
+    <div class="notif-item workout-only">
+      <div class="notif-item-time">6:20 PM</div>
+      <div class="notif-item-info">
+        <div class="notif-item-name">Ablazor Pre-Workout ⚡</div>
+        <div class="notif-item-sub">Workout days only — 10 min heads-up</div>
+      </div>
+      <div class="notif-dot" id="dot-preworkout"></div>
+    </div>
+
+    <div class="notif-item workout-only">
+      <div class="notif-item-time">8:55 PM</div>
+      <div class="notif-item-info">
+        <div class="notif-item-name">Post-Workout Stack ⚡</div>
+        <div class="notif-item-sub">Workout days only — Whey + Creatine</div>
+      </div>
+      <div class="notif-dot" id="dot-postworkout"></div>
+    </div>
+
+    <div class="notif-item">
+      <div class="notif-item-time">9:50 PM</div>
+      <div class="notif-item-info">
+        <div class="notif-item-name">Evening Skincare</div>
+        <div class="notif-item-sub">10 min heads-up before your 10 PM routine</div>
+      </div>
+      <div class="notif-dot" id="dot-evening"></div>
+    </div>
+
+    <p style="font-size:11px;color:#5a5a60;text-align:center;margin-top:20px;line-height:1.6;padding-bottom:10px;">
+      ⚡ Workout reminders only fire on Mon / Wed / Fri / Sat.<br>
+      Notifications require the app to have been opened at least once today.
+    </p>
+  </div>
+</div>
+
+<!-- ============ BOTTOM NAV ============ -->
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-today" onclick="switchPage('today')">
+    <span>☀</span>Today
+  </button>
+  <button class="nav-btn" id="nav-overview" onclick="switchPage('overview')">
+    <span>◎</span>Overview
+  </button>
+  <button class="nav-btn" id="nav-notify" onclick="switchPage('notify')">
+    <span>🔔</span>Alerts
+  </button>
+</div>
+
+<script>
+// ======== DATA ========
+
+// JS day index: 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+const ACTIVE_DAYS = [0, 1, 3, 5, 6]; // Sun, Mon, Wed, Fri, Sat
+
+// Workout days with label — Sun is active skincare but NO workout
+const WORKOUT_MAP = {
+  1: { day: 1, label: 'Full Body' },   // Mon
+  3: { day: 2, label: 'Full Body' },   // Wed
+  5: { day: 3, label: 'Full Body' },   // Fri
+  6: { day: 4, label: 'Stretch' },     // Sat
+};
+
+function isActiveDay(d) { return ACTIVE_DAYS.includes(d); }
+function getWorkout(d) { return WORKOUT_MAP[d] || null; }
+
+// Tasks by time block
+function buildTasks(active, workout) {
+  const tasks = [];
+
+  // ─── MORNING SKINCARE (6:30–7:00 AM) ───
+  tasks.push({ id:'sk_am_cleanse', block:'morning', name:'LUMACA Cleanser', detail:'Cleanse and pat completely dry before next step', tags:['skin'], category:'skin', wait: null });
+  if (active) {
+    tasks.push({ id:'sk_am_growth', block:'morning', name:'Growth Serum (Minoxidil / Torongia)', detail:'Apply to dry skin — active days only', tags:['skin','active'], category:'skin', wait: '⏳ Wait 5–10 mins before next step' });
+    tasks.push({ id:'sk_am_vitc', block:'morning', name:'Vitamin C (Babaria)', detail:'Apply Babaria Vitamin C — active days only', tags:['skin','active'], category:'skin', wait: '⏳ Wait 2–3 mins before next step' });
+  }
+  tasks.push({ id:'sk_am_ha', block:'morning', name:'Hyaluronic Acid (Babaria)', detail:'Mist face with water first, then apply HA to damp skin', tags:['skin'], category:'skin', wait: '⏳ Wait 1 min before next step' });
+  tasks.push({ id:'sk_am_lub', block:'morning', name:'Lubriderm Men 3-in-1', detail:'Moisturize — lock in the hydration', tags:['skin'], category:'skin', wait: null });
+  tasks.push({ id:'sk_am_spf', block:'morning', name:'ISDIN Sunscreen', detail:'Last step — every single day without exception ☀️', tags:['skin','daily'], category:'skin', wait: null });
+
+  // ─── AFTERNOON ───
+  tasks.push({ id:'tadalafil', block:'afternoon', name:'Tadalafil', detail: workout
+    ? 'As prescribed — take before heading to gym\n⏰ Target: ~5:00–6:00 PM'
+    : 'As prescribed — take in the afternoon\n⏰ Target: ~5:00–6:00 PM',
+    tags:['daily','supp'], category:'supp', wait: null });
+
+  // ─── PRE-WORKOUT (workout days only, ~6:30–7:00 PM) ───
+  if (workout) {
+    tasks.push({ id:'ablazor', block:'preworkout', name:'Ablazor', detail:'10g sachet — 30–60 min before gym\n⏰ Target: 6:30–7:00 PM (gym at 7:30 PM)', tags:['pre','supp'], category:'supp', wait: null });
+  }
+
+  // ─── POST-WORKOUT (workout days only, ~9:00–9:30 PM) ───
+  if (workout) {
+    tasks.push({ id:'whey', block:'postworkout', name:'Whey Protein', detail:'25–40g within 30–60 min after training\n⏰ Target: ~9:00–9:30 PM', tags:['post','supp'], category:'supp', wait: null });
+    tasks.push({ id:'creatine', block:'postworkout', name:'Creatine', detail:'3–5g — take right after workout\n⏰ Target: ~9:00–9:30 PM', tags:['post','supp'], category:'supp', wait: null });
+  }
+
+  // ─── EVENING SKINCARE (~10:00–10:30 PM, bed at 11 PM) ───
+  tasks.push({ id:'sk_pm_cleanse', block:'evening', name:'LUMACA Cleanser', detail:'Cleanse — leave skin slightly damp for next step\n⏰ Start: 10:00–10:30 PM', tags:['skin'], category:'skin', wait: null });
+  tasks.push({ id:'sk_pm_ha', block:'evening', name:'Hyaluronic Acid (Babaria)', detail:'Apply to damp skin immediately after cleanse', tags:['skin'], category:'skin', wait: active ? '⏳ Wait 10–15 mins until bone-dry before next step' : null });
+  if (active) {
+    tasks.push({ id:'sk_pm_retinol', block:'evening', name:'Retinol (Babaria)', detail:'Apply after HA is fully dry — active nights only\n⚠ Never layer with Vitamin C', tags:['skin','active'], category:'skin', wait: null });
+    tasks.push({ id:'sk_pm_min', block:'evening', name:'Minoxidil / Torongia', detail:'Apply right after Retinol', tags:['skin','active'], category:'skin', wait: '⏳ Wait 2–3 mins before next step' });
+  }
+  tasks.push({ id:'sk_pm_lub', block:'evening', name:'Lubriderm Men 3-in-1', detail:'Final step — seal everything in before sleep 🌙', tags:['skin'], category:'skin', wait: null });
+
+  return tasks;
+}
+
+// ======== STATE ========
+
+const today = new Date();
+const todayKey = today.toISOString().split('T')[0];
+const dayIdx = today.getDay();
+const active = isActiveDay(dayIdx);
+const workout = getWorkout(dayIdx);
+
+let checked = JSON.parse(localStorage.getItem('stack_checked_' + todayKey) || '{}');
+const tasks = buildTasks(active, workout);
+
+// Week completion
+function getWeekData() {
+  const week = [];
+  const now = new Date();
+  // Monday start
+  const mon = new Date(now);
+  const diff = (now.getDay() + 6) % 7;
+  mon.setDate(now.getDate() - diff);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    const key = d.toISOString().split('T')[0];
+    const data = JSON.parse(localStorage.getItem('stack_checked_' + key) || 'null');
+    const total = JSON.parse(localStorage.getItem('stack_total_' + key) || '0');
+    const done = data ? Object.values(data).filter(Boolean).length : 0;
+    week.push({ date: d, key, done, total, isToday: key === todayKey });
+  }
+  return week;
+}
+
+// ======== RENDER ========
+
+const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+document.getElementById('dateDisplay').textContent =
+  DAY_NAMES[dayIdx] + ', ' + MONTH_NAMES[today.getMonth()] + ' ' + today.getDate();
+
+const badge = document.getElementById('dayBadge');
+if (workout) {
+  badge.textContent = `⚡ DAY ${workout.day} — ${workout.label.toUpperCase()}`;
+  badge.className = 'day-badge active';
+} else if (active) {
+  badge.textContent = '⚡ ACTIVE DAY';
+  badge.className = 'day-badge active';
+} else {
+  badge.textContent = '🌊 REST DAY';
+  badge.className = 'day-badge rest';
+}
+
+function saveChecked() {
+  localStorage.setItem('stack_checked_' + todayKey, JSON.stringify(checked));
+  localStorage.setItem('stack_total_' + todayKey, tasks.length);
+}
+
+function getBlockLabel(block) {
+  const map = {
+    morning:     { label: 'MORNING SKINCARE', time: '6:30 – 7:00 AM' },
+    afternoon:   { label: 'AFTERNOON', time: '5:00 – 6:00 PM' },
+    preworkout:  { label: 'PRE-WORKOUT', time: '6:30 – 7:00 PM' },
+    postworkout: { label: 'POST-WORKOUT', time: '9:00 – 9:30 PM' },
+    evening:     { label: 'EVENING SKINCARE', time: '10:00 – 10:30 PM' },
+  };
+  return map[block];
+}
+
+function getTagHtml(tags) {
+  return tags.map(t => {
+    const map = { supp:'tag-supp', skin:'tag-skin', pre:'tag-pre', post:'tag-post', daily:'tag-daily', active:'tag-pre' };
+    return `<span class="task-tag ${map[t]||'tag-daily'}">${t}</span>`;
+  }).join('');
+}
+
+function renderTasks() {
+  const container = document.getElementById('taskContent');
+  container.innerHTML = '';
+
+  const blocks = ['morning','afternoon','preworkout','postworkout','evening'];
+
+  blocks.forEach(block => {
+    const blockTasks = tasks.filter(t => t.block === block);
+    if (!blockTasks.length) return;
+
+    const info = getBlockLabel(block);
+    container.innerHTML += `
+      <div class="time-label"><span>${info.label}</span></div>
+      <div class="time-clock">⏰ ${info.time}</div>
+    `;
+
+    blockTasks.forEach(task => {
+      const done = !!checked[task.id];
+      const waitHtml = task.wait ? `<div class="wait-pill">${task.wait}</div>` : '';
+      container.innerHTML += `
+        <div class="task-card ${done ? 'done' : ''}" id="card-${task.id}" onclick="toggle('${task.id}')">
+          <div class="check-ring"><span class="checkmark">✓</span></div>
+          <div class="task-info">
+            <div class="task-name">${task.name}</div>
+            <div class="task-detail">${task.detail.replace(/\n/g,'<br>')}</div>
+            ${waitHtml}
+            <div style="margin-top:6px">${getTagHtml(task.tags)}</div>
+          </div>
+        </div>
+      `;
+    });
+  });
+
+  updateProgress();
+}
+
+function toggle(id) {
+  checked[id] = !checked[id];
+  saveChecked();
+  const card = document.getElementById('card-' + id);
+  card.classList.toggle('done', checked[id]);
+
+  if (checked[id]) {
+    const total = tasks.length;
+    const done = Object.values(checked).filter(Boolean).length;
+    if (done === total) showToast('🔥 All done for today!');
+    else if (done % 5 === 0) showToast(`✓ ${done} tasks crushed`);
+  }
+
+  updateProgress();
+  updateOverview();
+}
+
+function updateProgress() {
+  const total = tasks.length;
+  const done = Object.values(checked).filter(v => v).length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  document.getElementById('mainProgress').style.width = pct + '%';
+  document.getElementById('progressText').textContent = done + ' / ' + total + ' done';
+}
+
+function updateOverview() {
+  const total = tasks.length;
+  const done = Object.values(checked).filter(v => v).length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+
+  document.getElementById('ringPct').textContent = pct + '%';
+  const circumference = 226.2;
+  const offset = circumference - (circumference * pct / 100);
+  document.getElementById('ringCircle').style.strokeDashoffset = offset;
+
+  document.getElementById('statDone').textContent = done;
+  document.getElementById('statLeft').textContent = total - done;
+
+  // Supp / skin breakdown
+  const suppTasks = tasks.filter(t => t.category === 'supp');
+  const skinTasks = tasks.filter(t => t.category === 'skin');
+  const suppDone = suppTasks.filter(t => checked[t.id]).length;
+  const skinDone = skinTasks.filter(t => checked[t.id]).length;
+  document.getElementById('rbSupp').textContent = suppDone + '/' + suppTasks.length;
+  document.getElementById('rbSkin').textContent = skinDone + '/' + skinTasks.length;
+
+  // Week dots
+  const week = getWeekData();
+  const dayLabels = ['M','T','W','T','F','S','S'];
+  let weekHtml = '';
+  week.forEach((d, i) => {
+    const dayJs = (d.date.getDay() + 6) % 7; // mon=0
+    const isActiveDot = isActiveDay(d.date.getDay());
+    let cls = isActiveDot ? 'active-day' : 'rest-day';
+    let inner = '';
+    if (d.isToday) {
+      cls += ' today';
+      const todayPct = total ? done / total : 0;
+      if (todayPct === 1) { cls = 'complete'; inner = '✓'; }
+      else inner = dayLabels[i];
+    } else if (d.total > 0 && d.done === d.total) {
+      cls = 'complete'; inner = '✓';
+    } else {
+      inner = dayLabels[i];
+    }
+    weekHtml += `
+      <div class="week-day">
+        <div class="week-day-name">${dayLabels[i]}</div>
+        <div class="week-dot ${cls}">${inner}</div>
+      </div>`;
+  });
+  document.getElementById('weekDots').innerHTML = weekHtml;
+}
+
+function resetDay() {
+  if (confirm('Reset all of today\'s tasks?')) {
+    checked = {};
+    saveChecked();
+    renderTasks();
+    updateOverview();
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function switchPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'overview') updateOverview();
+}
+
+
+// ======== SERVICE WORKER + NOTIFICATIONS ========
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    console.log('SW registered:', reg.scope);
+  }).catch(err => console.warn('SW failed:', err));
+}
+
+// Notification schedule (all times = when to FIRE the notification)
+// Active days: Sun(0), Mon(1), Wed(3), Fri(5), Sat(6)
+// Workout days: Mon(1), Wed(3), Fri(5), Sat(6)
+const NOTIF_SCHEDULE = [
+  {
+    id: 'morning',
+    hour: 6, min: 20,
+    title: '☀️ Morning Skincare in 10 min',
+    body: 'LUMACA → Growth Serum → Vitamin C → HA → Lubriderm → Sunscreen',
+    days: [0, 1, 2, 3, 4, 5, 6], // every day
+  },
+  {
+    id: 'tadalafil',
+    hour: 16, min: 50,
+    title: '💊 Tadalafil — 10 min reminder',
+    body: 'Take as prescribed before heading to the gym.',
+    days: [0, 1, 2, 3, 4, 5, 6],
+  },
+  {
+    id: 'preworkout',
+    hour: 18, min: 20,
+    title: '⚡ Pre-Workout in 10 min',
+    body: 'Ablazor 10g sachet — gym starts at 7:30 PM.',
+    days: [1, 3, 5, 6], // workout days only
+  },
+  {
+    id: 'postworkout',
+    hour: 20, min: 55,
+    title: '🥤 Post-Workout Stack',
+    body: 'Whey 25–40g + Creatine 3–5g — take now.',
+    days: [1, 3, 5, 6],
+  },
+  {
+    id: 'evening',
+    hour: 21, min: 50,
+    title: '🌙 Evening Skincare in 10 min',
+    body: 'Cleanse → HA → Retinol → Minoxidil → Lubriderm. Bed at 11 PM.',
+    days: [0, 1, 2, 3, 4, 5, 6],
+  },
+];
+
+let notifTimers = [];
+
+function clearNotifTimers() {
+  notifTimers.forEach(t => clearTimeout(t));
+  notifTimers = [];
+}
+
+async function scheduleNotifications() {
+  if (Notification.permission !== 'granted') return;
+
+  clearNotifTimers();
+  const now = new Date();
+  const todayDay = now.getDay();
+
+  NOTIF_SCHEDULE.forEach(n => {
+    if (!n.days.includes(todayDay)) return;
+
+    const fireAt = new Date();
+    fireAt.setHours(n.hour, n.min, 0, 0);
+
+    const delay = fireAt - now;
+    if (delay < 0) return; // already passed today
+
+    const timer = setTimeout(async () => {
+      const reg = await navigator.serviceWorker.ready;
+      reg.showNotification(n.title, {
+        body: n.body,
+        tag: n.id,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        vibrate: [200, 100, 200, 100, 200],
+        requireInteraction: false,
+      });
+      // Mark dot as fired
+      const dot = document.getElementById('dot-' + n.id);
+      if (dot) dot.classList.add('active');
+    }, delay);
+
+    notifTimers.push(timer);
+    console.log(`Scheduled [${n.id}] in ${Math.round(delay/60000)} min`);
+  });
+}
+
+async function requestNotifPermission() {
+  const btn = document.getElementById('notifBtn');
+  const desc = document.getElementById('notifDesc');
+
+  if (!('Notification' in window)) {
+    desc.textContent = '❌ This browser does not support notifications.';
+    btn.textContent = 'Not Supported';
+    btn.className = 'notif-btn denied';
+    return;
+  }
+
+  const perm = await Notification.requestPermission();
+
+  if (perm === 'granted') {
+    btn.textContent = '✓ Notifications Enabled';
+    btn.className = 'notif-btn granted';
+    desc.textContent = '✅ You'll get reminders before each protocol block. Keep the app open or in the background.';
+    scheduleNotifications();
+    updateNotifDots();
+  } else if (perm === 'denied') {
+    btn.textContent = 'Blocked — Enable in Browser Settings';
+    btn.className = 'notif-btn denied';
+    desc.textContent = '⚠️ Notifications are blocked. Go to Chrome Settings → Site Settings → Notifications to allow this site.';
+  }
+}
+
+function updateNotifDots() {
+  const granted = Notification.permission === 'granted';
+  ['morning','tadalafil','preworkout','postworkout','evening'].forEach(id => {
+    const dot = document.getElementById('dot-' + id);
+    if (dot) dot.classList.toggle('active', granted);
+  });
+}
+
+function updateNotifUI() {
+  const btn = document.getElementById('notifBtn');
+  const desc = document.getElementById('notifDesc');
+  if (!btn) return;
+
+  if (!('Notification' in window)) {
+    btn.textContent = 'Not Supported';
+    btn.className = 'notif-btn denied';
+    return;
+  }
+
+  const perm = Notification.permission;
+  if (perm === 'granted') {
+    btn.textContent = '✓ Notifications Enabled';
+    btn.className = 'notif-btn granted';
+    desc.textContent = '✅ Reminders are active. Keep the app open or in the background for them to fire.';
+    updateNotifDots();
+    scheduleNotifications();
+  } else if (perm === 'denied') {
+    btn.textContent = 'Blocked — Enable in Browser Settings';
+    btn.className = 'notif-btn denied';
+    desc.textContent = '⚠️ Notifications are blocked. Enable in Chrome → Settings → Site Settings → Notifications.';
+  }
+}
+
+// Re-schedule when page becomes visible again (e.g. user switches back)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    updateNotifUI();
+  }
+});
+
+// ======== INIT ========
+renderTasks();
+updateOverview();
+saveChecked(); // Ensure today's total is saved
+updateNotifUI();
+</script>
+</body>
+</html>
