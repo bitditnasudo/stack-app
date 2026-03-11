@@ -683,7 +683,156 @@
     box-shadow: 0 0 8px #4caf5066;
   }
 
-</style>
+  /* RECAP / HEATMAP PAGE */
+  .recap-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 20px 10px;
+  }
+  .recap-week-pills {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .recap-week-pill-label {
+    font-size: 11px; color: var(--muted); letter-spacing: 1px;
+    text-transform: uppercase; white-space: nowrap;
+  }
+
+  /* Heatmap grid */
+  .heatmap-wrap {
+    margin: 4px 16px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 16px 16px;
+  }
+  .heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+  }
+  .heatmap-cell {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 8px;
+  }
+  .heatmap-day-label {
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 10px; letter-spacing: 1px;
+    color: var(--muted); text-transform: uppercase;
+  }
+  .heatmap-day-label.today-lbl { color: var(--accent); }
+  .heatmap-dot-wrap {
+    position: relative; display: flex;
+    align-items: center; justify-content: center;
+  }
+  .heatmap-dot {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 11px; letter-spacing: 0.3px;
+    border: 1.5px solid transparent;
+    transition: all 0.3s ease;
+    cursor: default;
+    position: relative;
+  }
+  .heatmap-dot.dot-none {
+    background: #ffffff06; border-color: var(--border);
+    color: var(--muted);
+  }
+  .heatmap-dot.dot-low {
+    background: #e8281e14; border-color: #e8281e28;
+    color: #e8281e66;
+  }
+  .heatmap-dot.dot-mid {
+    background: #e8281e2a; border-color: #e8281e44;
+    color: #e8281eaa;
+  }
+  .heatmap-dot.dot-good {
+    background: #e8281e44; border-color: #e8281e66;
+    color: #e8281ecc;
+  }
+  .heatmap-dot.dot-high {
+    background: #e8281e70; border-color: #e8281eaa;
+    color: #fff;
+  }
+  .heatmap-dot.dot-full {
+    background: var(--accent); border-color: var(--accent);
+    color: #fff; box-shadow: 0 0 14px var(--accent-glow);
+  }
+  .heatmap-dot.dot-perfect {
+    background: linear-gradient(135deg, var(--gold), #8a6020);
+    border-color: var(--gold); color: #fff;
+    box-shadow: 0 0 14px #c9a84c55;
+  }
+  .heatmap-dot.dot-today {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px #e8281e33 !important;
+  }
+  .heatmap-dot.dot-future {
+    background: #ffffff04; border-color: var(--border);
+    color: var(--border2);
+  }
+  .heatmap-pct-label {
+    font-size: 9px; color: var(--muted);
+    letter-spacing: 0.3px; height: 12px; line-height: 12px;
+    font-family: 'DM Mono', monospace;
+  }
+  .heatmap-pct-label.lbl-active { color: var(--accent); }
+  .heatmap-pct-label.lbl-perfect { color: var(--gold); }
+
+  /* Legend */
+  .heatmap-legend {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; margin-top: 16px;
+  }
+  .legend-dots { display: flex; gap: 5px; align-items: center; }
+  .legend-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+  }
+
+  /* Stat pills */
+  .recap-avg-row { display: flex; gap: 10px; padding: 12px 16px 0; }
+  .recap-avg-pill {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 10px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .recap-avg-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .recap-avg-num {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px;
+    color: var(--accent); line-height: 1; text-shadow: 0 0 12px var(--accent-glow);
+  }
+
+  /* Day detail list */
+  .recap-list { display: flex; flex-direction: column; gap: 8px; padding-bottom: 20px; }
+  .recap-day-row {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .recap-day-row.today-row { border-color: #e8281e28; background: #e8281e06; }
+  .recap-day-row.future-row { opacity: 0.3; }
+  .recap-day-name {
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 13px; width: 36px; flex-shrink: 0; color: var(--text);
+  }
+  .recap-day-name.today-name { color: var(--accent); }
+  .recap-day-bar-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .recap-day-bar-fill { height: 100%; border-radius: 3px; transition: width 0.7s cubic-bezier(0.4,0,0.2,1); }
+  .recap-day-stats { font-size: 11px; color: var(--muted); white-space: nowrap; min-width: 60px; text-align: right; }
+  .recap-day-stats.perfect { color: var(--gold); }
+  .recap-day-badge {
+    font-size: 9px; letter-spacing: 1px; padding: 2px 6px; border-radius: 8px; flex-shrink: 0;
+  }
+  .recap-day-badge.gym { background: #e8281e14; color: var(--accent); border: 1px solid #e8281e28; }
+  .recap-day-badge.recovery { background: #4a7fa514; color: var(--rest-color); border: 1px solid #4a7fa528; }
+  .recap-day-badge.rest { background: #ffffff08; color: var(--muted); border: 1px solid var(--border); }
+
+  .recap-nav-btn {
+    background: var(--surface2); border: 1px solid var(--border2); border-radius: 20px;
+    color: var(--steel); font-family: 'DM Mono', monospace; font-size: 13px;
+    padding: 6px 12px; cursor: pointer; transition: all 0.2s; line-height: 1;
+  }
+  .recap-nav-btn:active { transform: scale(0.92); }
+  .recap-nav-btn:disabled { opacity: 0.25; cursor: default; }
 </head>
 <body>
 
@@ -987,6 +1136,59 @@
   </div>
 </div>
 
+<!-- ============ PAGE: RECAP ============ -->
+<div class="page" id="page-recap">
+
+  <!-- Header -->
+  <div class="recap-header">
+    <div class="section-title" style="font-size:16px;"><span class="section-icon">🔥</span> Heatmap</div>
+    <div class="recap-week-pills">
+      <button class="recap-nav-btn" onclick="recapPrevWeek()">←</button>
+      <div class="recap-week-pill-label" id="recapNavLabel">This week</div>
+      <button class="recap-nav-btn" onclick="recapNextWeek()" id="recapNextBtn">→</button>
+    </div>
+  </div>
+
+  <!-- Heatmap grid -->
+  <div class="heatmap-wrap">
+    <div class="heatmap-grid" id="heatmapGrid"></div>
+    <div class="heatmap-legend">
+      <span style="color:var(--muted);font-size:9px;letter-spacing:1px;">NONE</span>
+      <div class="legend-dots">
+        <div class="legend-dot" style="background:#e8281e18;"></div>
+        <div class="legend-dot" style="background:#e8281e44;"></div>
+        <div class="legend-dot" style="background:#e8281e88;"></div>
+        <div class="legend-dot" style="background:#e8281ecc;"></div>
+        <div class="legend-dot" style="background:#e8281e;box-shadow:0 0 6px var(--accent-glow);"></div>
+        <div class="legend-dot" style="background:var(--gold);box-shadow:0 0 6px #c9a84c66;"></div>
+      </div>
+      <span style="color:var(--muted);font-size:9px;letter-spacing:1px;">100%</span>
+    </div>
+  </div>
+
+  <!-- Stat pills -->
+  <div class="recap-avg-row">
+    <div class="recap-avg-pill">
+      <span class="recap-avg-label">WEEK AVG</span>
+      <span class="recap-avg-num" id="recapAvg">—</span>
+    </div>
+    <div class="recap-avg-pill">
+      <span class="recap-avg-label">BEST DAY</span>
+      <span class="recap-avg-num" id="recapBest" style="color:var(--gold)">—</span>
+    </div>
+    <div class="recap-avg-pill">
+      <span class="recap-avg-label">🔥 STREAK</span>
+      <span class="recap-avg-num" id="recapStreak" style="color:var(--accent3)">—</span>
+    </div>
+  </div>
+
+  <!-- Day detail list -->
+  <div style="padding: 8px 16px 0;">
+    <div class="recap-list" id="recapList"></div>
+  </div>
+
+</div>
+
 <!-- ============ BOTTOM NAV ============ -->
 <div class="bottom-nav">
   <button class="nav-btn active" id="nav-today" onclick="switchPage('today')">
@@ -994,6 +1196,9 @@
   </button>
   <button class="nav-btn" id="nav-overview" onclick="switchPage('overview')">
     <span>◎</span>Overview
+  </button>
+  <button class="nav-btn" id="nav-recap" onclick="switchPage('recap')">
+    <span>📈</span>Recap
   </button>
   <button class="nav-btn" id="nav-notify" onclick="switchPage('notify')">
     <span>🔔</span>Alerts
@@ -1061,7 +1266,14 @@ function buildTasks(active, workout) {
 // ======== STATE ========
 
 const today = new Date();
-const todayKey = today.toISOString().split('T')[0];
+// Use local date (not UTC) so the key never shifts due to timezone offset
+function getLocalDateKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+const todayKey = getLocalDateKey(today);
 const dayIdx = today.getDay();
 const active = isActiveDay(dayIdx);
 const workout = getWorkout(dayIdx);
@@ -1080,7 +1292,7 @@ function getWeekData() {
   for (let i = 0; i < 7; i++) {
     const d = new Date(mon);
     d.setDate(mon.getDate() + i);
-    const key = d.toISOString().split('T')[0];
+    const key = getLocalDateKey(d);
     const data = JSON.parse(localStorage.getItem('stack_checked_' + key) || 'null');
     const total = JSON.parse(localStorage.getItem('stack_total_' + key) || '0');
     const done = data ? Object.values(data).filter(Boolean).length : 0;
@@ -1264,6 +1476,150 @@ function switchPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
   if (name === 'overview') updateOverview();
+  if (name === 'recap') renderRecap();
+}
+
+// ======== WEEKLY RECAP ========
+
+let recapWeekOffset = 0; // 0 = current week, -1 = last week, etc.
+
+function getWeekStartMonday(offsetWeeks) {
+  const now = new Date();
+  const diff = (now.getDay() + 6) % 7; // days since Monday
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - diff + offsetWeeks * 7);
+  mon.setHours(0,0,0,0);
+  return mon;
+}
+
+function getDayLabel(jsDay) {
+  // jsDay: 0=Sun,1=Mon,...,6=Sat
+  const workout = getWorkout(jsDay);
+  const active = isActiveDay(jsDay);
+  if (workout) return { cls: 'gym', text: 'GYM' };
+  if (active && jsDay === 6) return { cls: 'recovery', text: 'REC' };
+  if (active) return { cls: 'gym', text: 'ACT' };
+  return { cls: 'rest', text: 'REST' };
+}
+
+
+function renderRecap() {
+  const mon = getWeekStartMonday(recapWeekOffset);
+  const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const todayKey2 = getLocalDateKey(new Date());
+  const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Build week data
+  const weekDays = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    const key = getLocalDateKey(d);
+    const rawData = localStorage.getItem('stack_checked_' + key);
+    const rawTotal = localStorage.getItem('stack_total_' + key);
+    const data = rawData ? JSON.parse(rawData) : null;
+    const total = rawTotal ? parseInt(rawTotal) : 0;
+    const done = data ? Object.values(data).filter(Boolean).length : 0;
+    const pct = total > 0 ? Math.round(done / total * 100) : (key === todayKey2 ? 0 : null);
+    const isToday = key === todayKey2;
+    const isFuture = d > new Date() && !isToday;
+    weekDays.push({ d, key, done, total, pct, isToday, isFuture, jsDay: d.getDay() });
+  }
+
+  // Nav label
+  const endDay = new Date(mon); endDay.setDate(mon.getDate() + 6);
+  document.getElementById('recapNavLabel').textContent =
+    recapWeekOffset === 0 ? 'This week' :
+    recapWeekOffset === -1 ? 'Last week' :
+    `${mon.getDate()} ${mNames[mon.getMonth()]} – ${endDay.getDate()} ${mNames[endDay.getMonth()]}`;
+  document.getElementById('recapNextBtn').disabled = recapWeekOffset >= 0;
+
+  // Stats
+  const logged = weekDays.filter(d => d.pct !== null && !d.isFuture);
+  const avg = logged.length > 0 ? Math.round(logged.reduce((s,d) => s + (d.pct||0), 0) / logged.length) : null;
+  const best = logged.length > 0 ? Math.max(...logged.map(d => d.pct||0)) : null;
+  let streak = 0;
+  for (let i = logged.length - 1; i >= 0; i--) {
+    if ((logged[i].pct||0) === 100) streak++; else break;
+  }
+  document.getElementById('recapAvg').textContent = avg !== null ? avg + '%' : '—';
+  document.getElementById('recapBest').textContent = best !== null ? best + '%' : '—';
+  document.getElementById('recapStreak').textContent = streak > 0 ? streak + 'd' : '—';
+
+  // ---- Heatmap dot class ----
+  function getDotClass(day) {
+    if (day.isFuture) return 'dot-future';
+    if (day.pct === null) return 'dot-none';
+    if (day.pct === 100) return 'dot-perfect';
+    if (day.pct >= 80) return 'dot-full';
+    if (day.pct >= 60) return 'dot-high';
+    if (day.pct >= 40) return 'dot-good';
+    if (day.pct >= 15) return 'dot-mid';
+    if (day.pct > 0)   return 'dot-low';
+    return 'dot-none';
+  }
+
+  function getDotLabel(day) {
+    if (day.isFuture) return '·';
+    if (day.pct === null) return '—';
+    if (day.pct === 100) return '✓';
+    return day.pct + '%';
+  }
+
+  // ---- Render heatmap grid ----
+  const grid = document.getElementById('heatmapGrid');
+  grid.innerHTML = '';
+  weekDays.forEach((day, i) => {
+    const dotCls = getDotClass(day);
+    const todayCls = day.isToday ? ' dot-today' : '';
+    const pctLblCls = day.pct === 100 ? 'lbl-perfect' : (day.pct > 0 && !day.isFuture ? 'lbl-active' : '');
+    const pctText = day.isFuture ? '' : (day.pct !== null ? day.pct + '%' : '');
+
+    grid.innerHTML += `
+      <div class="heatmap-cell">
+        <div class="heatmap-day-label ${day.isToday ? 'today-lbl' : ''}">${dayNames[i]}</div>
+        <div class="heatmap-dot-wrap">
+          <div class="heatmap-dot ${dotCls}${todayCls}">${getDotLabel(day)}</div>
+        </div>
+        <div class="heatmap-pct-label ${pctLblCls}">${pctText}</div>
+      </div>
+    `;
+  });
+
+  // ---- Render detail list ----
+  const listEl = document.getElementById('recapList');
+  listEl.innerHTML = '';
+  weekDays.forEach((day, i) => {
+    const pct = day.pct !== null ? day.pct : 0;
+    const isPerfect = pct === 100 && !day.isFuture && day.pct !== null;
+    const badge = getDayLabel(day.jsDay);
+    const barColor = pct === 100 ? 'var(--gold)' : pct >= 60 ? 'var(--accent)' : '#e8281e88';
+    const statsText = day.isFuture ? 'upcoming'
+      : day.pct === null ? 'no data'
+      : `${day.done}/${day.total} · ${pct}%`;
+
+    listEl.innerHTML += `
+      <div class="recap-day-row ${day.isToday ? 'today-row' : ''} ${day.isFuture ? 'future-row' : ''}">
+        <div class="recap-day-name ${day.isToday ? 'today-name' : ''}">${dayNames[i]}</div>
+        <div class="recap-day-bar-track">
+          <div class="recap-day-bar-fill" style="width:${day.isFuture ? 0 : pct}%;background:${barColor};"></div>
+        </div>
+        <div class="recap-day-stats ${isPerfect ? 'perfect' : ''}">${isPerfect ? '🏆 ' : ''}${statsText}</div>
+        <div class="recap-day-badge ${badge.cls}">${badge.text}</div>
+      </div>
+    `;
+  });
+}
+
+function recapPrevWeek() {
+  recapWeekOffset--;
+  renderRecap();
+}
+
+function recapNextWeek() {
+  if (recapWeekOffset >= 0) return;
+  recapWeekOffset++;
+  renderRecap();
 }
 
 
@@ -1422,6 +1778,11 @@ function updateNotifUI() {
 // Re-schedule when page becomes visible again (e.g. user switches back)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
+    // If the date has changed since the app loaded, reload to reset tasks
+    if (getLocalDateKey(new Date()) !== todayKey) {
+      window.location.reload();
+      return;
+    }
     updateNotifUI();
   }
 });
