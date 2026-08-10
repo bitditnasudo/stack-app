@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) resolve to real
+         values; without it they are 0 and the floating nav sits on the home
+         indicator instead of above it.
+         Note there is no maximum-scale / user-scalable=no here. The old build
+         had both: iOS ignores them and Android treats them as an accessibility
+         regression. See LOCK_PINCH_ZOOM in main.jsx. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>STACK — Daily Protocol</title>
+    <meta name="description" content="Daily skincare, supplement and training protocol tracker." />
+
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- keep in sync with --bg in src/theme.css and background_color in the
+         manifest, or the status bar flashes a different colour on launch -->
+    <meta name="theme-color" content="#F2EEF9" />
+    <meta name="apple-mobile-web-app-title" content="STACK" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

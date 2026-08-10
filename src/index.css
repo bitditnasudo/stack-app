@@ -1,0 +1,995 @@
+/* ============================================================================
+   COMPONENTS — do not edit per app. Every value here comes from theme.css.
+   ============================================================================
+   Structure, in order:
+     1. Reset & document      6. Forms
+     2. Layout & shell         7. Navigation (bottom bar → sidebar)
+     3. Header & search        8. Sheets, popovers, toasts
+     4. Surfaces & sections    9. Feedback (empty, spinner, progress)
+     5. Buttons, tags, chips  10. Responsive (700 / 1100 / 1400)
+
+   PROVISIONAL — forward-looking surface that no shipping app exercises yet:
+     .auth-*  .steps  .step-dot  .toast-danger  .card-ok/-warn/-danger/-brand
+     .tag-outline  .tag-on-dark  .btn-square*  .btn-plain  .choice*  .split-*
+     .sheet-split/-head/-body  .field-row  .swatch*  .check-*  .stat*  .chip-row
+   Unexercised CSS in a shared kit rots quietly — you don't find out it's broken
+   until a third app leans on it. Treat these as unverified until something real
+   uses them, and delete any that are still unused when the kit next gets a pass.
+
+   CONVENTIONS
+     · Variants are compound:   .btn-soft, .tag-ok, .progress-fill-warn
+     · States are namespaced:   .is-active, .is-selected, .is-done, .is-narrow
+   No bare single-word class is ever defined here. A kit that owns `.info` or
+   `.active` outright will silently restyle any consuming app that defines the
+   same word for its own purposes.
+   ========================================================================== */
+
+@import './theme.css';
+
+/* ── 1. Reset & document ─────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 16px;
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overscroll-behavior: none;
+  /* keeps scrolling, drops double-tap-to-zoom */
+  touch-action: manipulation;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  /* solid fallback so the status bar and overscroll gutters are never white */
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  line-height: 1.5;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* iOS ignores background-attachment:fixed, so a page gradient has to live on a
+   fixed pseudo-layer. Costs nothing when --bg-2 equals --bg. */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+}
+
+h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.2; }
+h1 { font-size: var(--fs-2xl); }
+h2 { font-size: var(--fs-xl); }
+h3 { font-size: var(--fs-lg); }
+
+button, input, select, textarea { font-family: inherit; }
+
+/* One focus treatment for the whole app. Mouse users never see it. */
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+
+/* Optional decorative corner shapes. Render <div className="bg-blobs" /> inside
+   the shell to switch them on; omit it for a plain page. */
+.bg-blobs { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.bg-blobs::before, .bg-blobs::after {
+  content: ''; position: absolute;
+  background: var(--brand-deep); opacity: .07;
+  width: 420px; height: 420px;
+  border-radius: 42% 58% 60% 40% / 45% 40% 60% 55%;
+}
+.bg-blobs::before { top: -220px; left: -200px; }
+.bg-blobs::after  { bottom: -230px; right: -190px; transform: rotate(25deg); }
+
+/* ── 2. Layout & shell ───────────────────────────────────────────────────── */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  max-width: var(--shell-w);
+  margin: 0 auto;
+  position: relative;
+}
+
+.main-content {
+  flex: 1;
+  /* top padding clears the transparent iOS status bar in standalone mode;
+     bottom padding lets the last card scroll clear of the floating nav */
+  padding: calc(var(--sp-4) + env(safe-area-inset-top, 0px)) var(--sp-4)
+           calc(104px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y; /* pages scroll vertically only — never drag sideways */
+  animation: contentFadeIn var(--dur-mid) ease;
+}
+
+/* Settings and onboarding are short rows; at full desktop width they would sit
+   in a field of empty card. */
+.main-content.is-narrow { width: 100%; max-width: var(--reading-w); margin: 0 auto; }
+
+/* Onboarding renders INSTEAD of the shell, so there is no floating nav to clear
+   — it was inheriting .main-content's 104px reservation and leaving a dead band
+   under the primary button on every step.
+   It also owns the full viewport rather than sitting inside .app-shell, so it
+   sets its own height and pushes its CTA to the bottom: the steps are short, and
+   a button floating mid-screen above 400px of nothing reads as unfinished. */
+.main-content.onboarding {
+  padding-bottom: calc(var(--sp-6) + env(safe-area-inset-bottom, 0px));
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.ob-cta { margin-top: auto; }
+
+@keyframes contentFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── 3. Header & search ──────────────────────────────────────────────────── */
+
+.header {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-2) 2px var(--sp-4);
+}
+.header .hello { flex: 1; min-width: 0; line-height: 1.15; }
+.header .hello small { display: block; font-size: var(--fs-sm); color: var(--muted-on-bg); font-weight: 500; }
+.header .hello b { font-family: var(--font-display); font-size: var(--fs-xl); }
+
+.avatar {
+  width: 46px; height: 46px; border-radius: 50%;
+  overflow: hidden; flex-shrink: 0;
+  border: 2px solid var(--brand); background: var(--brand-wash);
+  color: var(--brand-deep);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md);
+  cursor: pointer; padding: 0;
+  transition: filter var(--dur-fast) ease;
+}
+.avatar:hover { filter: brightness(.96); }
+.avatar svg, .avatar img { width: 100%; height: 100%; display: block; }
+
+.icon-btn {
+  width: var(--tap); height: var(--tap); border-radius: 50%;
+  border: none; cursor: pointer; position: relative; flex-shrink: 0;
+  background: var(--surface-2); color: var(--brand-deep);
+  display: flex; align-items: center; justify-content: center;
+  transition: filter var(--dur-fast) ease, transform var(--dur-fast) ease;
+}
+.icon-btn:hover { filter: brightness(.96); }
+.icon-btn:active { transform: scale(.92); }
+/* unread marker */
+.icon-btn .dot {
+  position: absolute; top: 7px; right: 8px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--danger); border: 1.5px solid var(--surface);
+}
+
+.search-bar {
+  display: flex; align-items: center; gap: var(--sp-2);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px var(--sp-4);
+  margin-bottom: var(--sp-4); color: var(--muted);
+}
+.search-bar input {
+  flex: 1; min-width: 0; border: none; outline: none; background: none;
+  font-size: var(--fs-lg); color: var(--text);
+}
+.search-bar input::placeholder { color: var(--muted); }
+
+/* ── 4. Surfaces & sections ──────────────────────────────────────────────── */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-3);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(var(--surface-blur));
+}
+
+/* Dark brand card — one per screen at most: the thing the screen is about. */
+.card-hero {
+  background: linear-gradient(135deg, var(--brand-deep) 0%, var(--brand) 100%);
+  color: var(--on-dark);
+  border: none;
+}
+.card-hero .muted, .card-hero small { color: rgb(255 255 255 / .78); }
+
+/* Tinted cards for a standing state (a goal met, a warning that isn't an error) */
+.card-ok     { background: var(--ok-wash);     border-color: var(--ok-line);     box-shadow: none; }
+.card-warn   { background: var(--warn-wash);   border-color: var(--warn-line);   box-shadow: none; }
+.card-danger { background: var(--danger-wash); border-color: var(--danger-line); box-shadow: none; }
+.card-brand  { background: var(--brand-wash);  border-color: var(--brand-line);  box-shadow: none; }
+
+/* Card list that becomes columns on wider screens. */
+.card-grid { display: grid; grid-template-columns: 1fr; gap: var(--sp-3); }
+.card-grid .card { margin-bottom: 0; }
+
+/* Two section headings, doing different jobs.
+   .section-title  — a micro-label above a group inside a card.
+   .section-head   — a real heading with a counter or an action beside it. */
+.section-title {
+  font-size: var(--fs-xs); font-weight: 700; color: var(--brand);
+  text-transform: uppercase; letter-spacing: .08em;
+  margin-bottom: var(--sp-2); opacity: .8;
+}
+.section-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  margin: var(--sp-5) 2px var(--sp-3);
+}
+.section-head h2 { font-size: var(--fs-xl); color: var(--text); }
+.section-head .sub { font-size: var(--fs-sm); color: var(--muted-on-bg); font-weight: 600; }
+.section-head-aside { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+/* Rows inside a card: icon, growing body, trailing value. */
+.list-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) 2px;
+  border-bottom: 1px solid var(--border);
+}
+.list-row:last-child { border-bottom: none; }
+.list-row .grow { flex: 1; min-width: 0; }
+.list-row small { display: block; font-size: var(--fs-xs); color: var(--muted); }
+.row-icon {
+  width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+  background: var(--brand-wash); color: var(--brand);
+  display: flex; align-items: center; justify-content: center;
+}
+.row-icon-danger { background: var(--danger-wash); color: var(--danger); }
+
+/* Two-step destructive confirm. */
+.confirm-stack { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+.confirm-trigger { margin-top: var(--sp-2); }
+
+/* Compact stat grid. auto-fill rather than a fixed 2 columns: at 1040px a fixed
+   pair gives two 484px tiles holding a two-digit number, which reads as a
+   mistake. Tiles now stay ~200px whatever the column width. */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--sp-2);
+}
+.stat { border-radius: var(--radius-sm); padding: var(--sp-3); background: var(--surface-2); }
+.stat .stat-label { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); }
+.stat .stat-value {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--fs-xl);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 5. Buttons, tags, chips ─────────────────────────────────────────────── */
+
+/* Base + modifier, never a separate class per shape. Width is opt-in
+   (.btn-block) so a button is only full-width where that was decided. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  border: none; border-radius: var(--radius-sm);
+  padding: 12px 18px; min-height: var(--tap);
+  font-size: var(--fs-md); font-weight: 700;
+  cursor: pointer; text-decoration: none;
+  transition: transform var(--dur-fast) ease, opacity var(--dur-fast) ease, filter var(--dur-fast) ease;
+}
+.btn:active:not(:disabled) { transform: scale(.97); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn-block { width: 100%; }
+.btn-sm { padding: var(--sp-2) 13px; font-size: var(--fs-sm); border-radius: var(--radius-xs); }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--brand-soft), var(--brand-deep));
+  color: var(--on-brand);
+  box-shadow: var(--shadow-brand);
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
+
+.btn-secondary {
+  background: transparent; color: var(--text);
+  border: 1.5px solid var(--border);
+}
+.btn-secondary:hover:not(:disabled) { border-color: var(--border-strong); }
+
+.btn-soft   { background: var(--brand-wash); color: var(--brand-deep); }
+.btn-danger { background: var(--danger-wash); color: var(--danger-ink); }
+.btn-plain  {
+  background: none; color: var(--muted); padding: var(--sp-1) var(--sp-2);
+  min-height: 0; font-size: var(--fs-xs);
+}
+.btn-plain:hover { color: var(--brand); }
+
+/* Square icon button that sits in a card's action row. */
+.btn-square {
+  width: var(--tap); height: var(--tap); border-radius: 12px;
+  border: none; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform var(--dur-fast) ease;
+}
+.btn-square:active:not(:disabled) { transform: scale(.9); }
+.btn-square:disabled { opacity: .35; cursor: default; }
+.btn-square-solid { background: var(--brand-deep); color: var(--on-brand); }
+.btn-square-soft  { background: var(--brand-wash); color: var(--brand-deep); }
+
+/* Status tag. Semantic names only — never .tag-green. */
+.tag {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  border-radius: var(--radius-pill); padding: 3px 9px;
+  font-size: var(--fs-xs); font-weight: 700; white-space: nowrap;
+}
+.tag-ok      { background: var(--ok-wash);      color: var(--ok-ink); }
+.tag-warn    { background: var(--warn-wash);    color: var(--warn-ink); }
+.tag-danger  { background: var(--danger-wash);  color: var(--danger-ink); }
+.tag-info    { background: var(--info-wash);    color: var(--info-ink); }
+.tag-brand   { background: var(--brand-wash);   color: var(--brand-deep); }
+.tag-neutral { background: var(--neutral-wash); color: var(--muted); }
+.tag-outline { background: transparent; color: var(--muted); border: 1px solid var(--border-strong); }
+.tag-on-dark { background: rgb(255 255 255 / .16); color: var(--on-dark); }
+
+/* Toggleable chip — filters, sorts, modes. Full tap height even though it
+   looks small. */
+.chip {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  border: 1px solid var(--border); background: var(--surface); color: var(--brand-deep);
+  border-radius: var(--radius-pill); padding: var(--sp-2) 13px; min-height: var(--tap);
+  font-size: var(--fs-sm); font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+}
+.chip.is-active { background: var(--brand-deep); color: var(--on-brand); border-color: var(--brand-deep); }
+
+/* Horizontal chip strip: the one place a sideways drag is wanted. */
+.chip-row {
+  display: flex; gap: var(--sp-2); margin-bottom: var(--sp-3);
+  overflow-x: auto; padding: 2px;
+  touch-action: pan-x;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 90%, transparent);
+  mask-image: linear-gradient(90deg, #000 90%, transparent);
+}
+.chip-row::-webkit-scrollbar { display: none; }
+
+/* Segmented control — two to four mutually exclusive options. */
+.seg {
+  display: flex; gap: 3px; padding: 3px;
+  background: var(--brand-wash); border-radius: var(--radius-xs);
+}
+.seg button {
+  flex: 1; border: none; background: none; border-radius: 8px;
+  padding: var(--sp-2) var(--sp-1); min-height: var(--tap);
+  font-size: var(--fs-sm); font-weight: 700; color: var(--brand-deep);
+  cursor: pointer;
+}
+.seg button.is-active { background: var(--brand-deep); color: var(--on-brand); }
+
+/* Icon-tile picker — more options than a .seg can hold. */
+.choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.choice {
+  border: 1.5px solid var(--border); background: var(--surface);
+  border-radius: var(--radius-sm); padding: var(--sp-3) var(--sp-2);
+  text-align: center; cursor: pointer;
+}
+.choice.is-selected { border-color: var(--brand); background: var(--brand-wash); }
+.choice .choice-icon { display: block; font-size: var(--fs-xl); margin-bottom: var(--sp-1); }
+.choice .choice-label { font-size: var(--fs-sm); font-weight: 700; color: var(--text); }
+.choice .choice-sub { font-size: var(--fs-xs); color: var(--muted); }
+
+/* Colour swatch picker. */
+.swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }
+.swatch {
+  aspect-ratio: 1; border-radius: var(--radius-xs);
+  border: 2.5px solid transparent; cursor: pointer; padding: 0;
+}
+.swatch.is-selected { border-color: var(--text); }
+
+/* Checklist row. */
+.check-item {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) 0; border-bottom: 1px solid var(--border);
+}
+.check-item:last-child { border-bottom: none; }
+.check-box {
+  width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0;
+  border: 1.5px solid var(--border-strong);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--on-brand);
+}
+.check-box.is-done { background: var(--brand); border-color: var(--brand); }
+
+/* ── 6. Forms ────────────────────────────────────────────────────────────── */
+
+/* min-width:0 is load-bearing: flex children default to min-width:auto and
+   refuse to shrink below a control's intrinsic width. iOS gives native date
+   pickers a very wide intrinsic size, which pushes side-by-side fields past
+   the sheet edge and makes the whole sheet pannable sideways. */
+.field { margin-bottom: var(--sp-4); min-width: 0; }
+.field label {
+  display: block; margin-bottom: var(--sp-1);
+  font-size: var(--fs-xs); font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.field input, .field select, .field textarea {
+  width: 100%; min-width: 0; max-width: 100%;
+  border: 1px solid var(--border); border-radius: var(--radius-xs);
+  background: var(--surface-2); padding: 11px 13px;
+  /* 16px is not a style choice: anything smaller makes iOS Safari zoom the
+     page on focus and never zoom back out. */
+  font-size: var(--fs-lg); color: var(--text);
+  outline: none;
+}
+/* stops iOS sizing the control to its own chrome rather than its box */
+.field input[type="date"] { -webkit-appearance: none; appearance: none; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--brand); }
+.field textarea { resize: vertical; min-height: 76px; }
+.field-row { display: flex; gap: var(--sp-2); }
+.field-row > .field { flex: 1; }
+
+.hint  { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--sp-1); line-height: 1.5; max-width: var(--measure); }
+.error { font-size: var(--fs-sm); color: var(--danger-ink); font-weight: 600; margin-top: var(--sp-1); }
+
+/* ── 7. Navigation ───────────────────────────────────────────────────────── */
+/* Phone: a floating pill bar with the primary action in the middle.
+   ≥700px: the same element becomes a sticky sidebar (see §10). Keeping one
+   element for both is what makes the two source apps feel like one product. */
+
+.bottom-nav {
+  position: fixed;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  left: 50%; transform: translateX(-50%);
+  width: calc(100% - var(--sp-6)); max-width: 408px;
+  display: flex; align-items: center; justify-content: space-around;
+  padding: 10px var(--sp-3);
+  background: var(--surface); backdrop-filter: blur(10px);
+  border: 1px solid var(--border); border-radius: var(--radius-pill);
+  box-shadow: 0 8px 24px rgb(var(--brand-rgb) / .14);
+  z-index: 50;
+}
+
+/* 44px floor even though the icon and label are shorter than that. */
+.nav-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; padding: 7px 10px; min-height: var(--tap);
+  background: none; border: none; cursor: pointer;
+}
+/* --fs-xs, not a hand-picked 9px. theme.css declares 11px as the floor and this
+   rule used to be the loudest violation of it in the kit. */
+.nav-item .nav-label {
+  font-size: var(--fs-xs); font-weight: 600; color: var(--muted);
+  line-height: 1.1;
+  transition: color var(--dur-fast) ease;
+}
+.nav-item svg { color: var(--muted); transition: color var(--dur-fast) ease, transform var(--dur-fast) ease; }
+.nav-item:active svg { transform: scale(.88); }
+.nav-item:hover .nav-label, .nav-item:hover svg { color: var(--brand); }
+
+/* The active tab is a filled pill, not a colour change — it reads at a glance
+   and survives a themed background. */
+.nav-pill {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--brand-deep); border-radius: var(--radius-pill);
+  padding: var(--sp-2) var(--sp-4);
+  animation: navPillIn var(--dur-slow) var(--ease-pop);
+}
+.nav-pill span { font-size: var(--fs-xs); font-weight: 700; color: var(--on-brand); line-height: 1.1; }
+.nav-pill svg { color: var(--on-brand); }
+@keyframes navPillIn {
+  from { transform: scale(.8); opacity: 0; }
+  to   { transform: scale(1);  opacity: 1; }
+}
+
+/* The primary action rides inside the bar rather than floating over the
+   content — a floating FAB has to be positioned against the app column and
+   still ends up covering the last row of the list. */
+/* A pill, not a circle: the bar is a pill and the active tab is a pill, so a
+   lone circle read as a foreign object dropped into the row. Wider than it is
+   tall so it reads as a lozenge rather than a squircle.
+   No `order` — it is last in the DOM and stays last. */
+.fab {
+  height: var(--tap); min-width: 62px; padding: 0 var(--sp-4);
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--brand-soft), var(--brand-deep));
+  color: var(--on-brand); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-1);
+  box-shadow: var(--shadow-brand);
+  transition: transform var(--dur-fast) ease;
+}
+.fab:active { transform: scale(.9); }
+.fab-label { display: none; } /* sidebar only */
+
+.nav-brand { display: none; } /* sidebar only */
+
+/* ── Bottom bar capacity ──────────────────────────────────────────────────
+   The bar has a fixed width and its contents don't shrink, so past a certain
+   number of labelled tabs the action pill is pushed outside the bar. Rather
+   than cap the tab count, inactive tabs drop to icons exactly when they must —
+   the ACTIVE tab always keeps its label inside its pill, which is what tells
+   you where you are. Budget Tracker shipped the same trade-off.
+
+   Four or more tabs: no room for labels at phone width. */
+@media (max-width: 699px) {
+  .bottom-nav-dense .nav-item .nav-label { display: none; }
+}
+
+/* Very narrow phones (≤359px, e.g. iPhone SE): not enough room even for three
+   labelled tabs, and the paddings themselves have to give. */
+@media (max-width: 359px) {
+  .nav-item .nav-label { display: none; }
+  .nav-item { padding: 7px 8px; }
+  .bottom-nav { padding: 10px var(--sp-2); }
+  .fab { min-width: 54px; padding: 0 var(--sp-3); }
+}
+
+/* ── 8. Sheets, popovers, toasts ─────────────────────────────────────────── */
+
+.overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgb(var(--brand-rgb) / .42);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: overlayIn .18s ease;
+  /* dragging the backdrop must do nothing at all */
+  touch-action: none;
+  overscroll-behavior: none;
+}
+@keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+.sheet {
+  width: 100%; max-width: var(--shell-w);
+  background: var(--bg-2);
+  border-radius: 26px 26px 0 0;
+  padding: var(--sp-5) var(--sp-4) calc(var(--sp-5) + env(safe-area-inset-bottom, 0px));
+  max-height: 88dvh;
+  overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere;
+  /* scrolling the sheet must never drag the page behind it */
+  overscroll-behavior: contain;
+  /* pan-y is the actual fix for "I can drag the sheet contents around": the
+     browser is told the only legal gesture is a vertical scroll, so sideways
+     and diagonal drags are refused rather than rubber-banding. */
+  touch-action: pan-y;
+  animation: sheetUp .25s var(--ease-pop);
+}
+@keyframes sheetUp { from { transform: translateY(60px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.sheet h2 { font-size: var(--fs-xl); margin-bottom: var(--sp-4); }
+/* The title row owns the spacing when there's a close button beside the heading. */
+.sheet-title { margin-bottom: var(--sp-4); }
+.sheet-title h2 { margin-bottom: 0; }
+.sheet-handle {
+  width: 44px; height: 5px; border-radius: 3px;
+  background: var(--brand-line); opacity: .7;
+  margin: 0 auto var(--sp-4);
+}
+
+/* Sheet with a pinned header and its own scroll region — for detail views
+   where the header is an identity card that shouldn't scroll away. */
+.sheet-split { display: flex; flex-direction: column; overflow: hidden; padding: 0; max-height: 88dvh; }
+.sheet-split .sheet-head {
+  flex-shrink: 0;
+  padding: var(--sp-5) var(--sp-4) var(--sp-4);
+  border-radius: inherit;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.sheet-split .sheet-body {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: var(--sp-4) var(--sp-4) calc(var(--sp-5) + env(safe-area-inset-bottom, var(--sp-4)));
+}
+
+/* Anchored popover with a tail — notifications, quick menus. Sits under the
+   control that opened it; the wrapper is position:relative. */
+.popover-wrap { position: relative; }
+.popover {
+  position: absolute; top: calc(100% + var(--sp-3)); right: -4px; z-index: 60;
+  width: min(344px, calc(100vw - 36px));
+  background: var(--surface); backdrop-filter: blur(10px);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+  padding: var(--sp-4); max-height: 60vh;
+  overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; touch-action: pan-y;
+  transform-origin: top right;
+  animation: popIn .18s var(--ease-pop);
+}
+@keyframes popIn { from { opacity: 0; transform: scale(.92) translateY(-6px); } to { opacity: 1; transform: none; } }
+.popover-empty { padding: var(--sp-4); }
+.popover::before {
+  content: ''; position: absolute; top: -7px; right: 16px;
+  width: 13px; height: 13px; background: var(--surface);
+  border-left: 1px solid var(--border); border-top: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+
+.toast {
+  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+  z-index: 200; white-space: nowrap;
+  background: var(--text); color: var(--on-dark);
+  padding: 10px var(--sp-5); border-radius: var(--radius-pill);
+  font-size: var(--fs-sm); font-weight: 600;
+  animation: toastIn .2s var(--ease-out);
+}
+.toast-danger { background: var(--danger-ink); }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ── 9. Feedback ─────────────────────────────────────────────────────────── */
+
+/* A real empty state: illustration, what's missing, what to do about it. */
+.empty { text-align: center; padding: 42px 22px; color: var(--muted-on-bg); }
+.empty svg.big { width: 90px; height: 90px; margin-bottom: var(--sp-3); opacity: .55; }
+.empty h3 { color: var(--text); margin-bottom: var(--sp-2); }
+.empty p { font-size: var(--fs-sm); max-width: 280px; margin: 0 auto var(--sp-4); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--border); border-top-color: var(--brand);
+  animation: spin .6s linear infinite;
+}
+.spin { animation: spin 1s linear infinite; }
+
+.progress { height: 6px; width: 100%; border-radius: var(--radius-pill); background: var(--neutral-wash); overflow: hidden; }
+.progress-fill { height: 100%; border-radius: var(--radius-pill); background: var(--ok); transition: width var(--dur-slow) var(--ease-out); }
+.progress-fill-warn   { background: var(--warn); }
+.progress-fill-danger { background: var(--danger); }
+
+/* Footer signature. Sits on --bg, not on a card, so it takes --muted-on-bg.
+   Centred text needs a tighter measure than ranged-left: at full column width
+   this ran ~93 characters and the eye lost the line start on every wrap. */
+.signature { text-align: center; padding: 22px 0 8px; }
+.signature p {
+  font-size: var(--fs-sm); color: var(--muted-on-bg);
+  margin-top: var(--sp-2);
+  max-width: var(--measure-tight); margin-inline: auto;
+}
+/* Specificity over !important — this is a <p> inside .signature, so it only has
+   to out-rank .signature p, which one extra class does. */
+.signature p.signature-build { font-size: var(--fs-xs); opacity: .8; }
+
+/* Onboarding spacing. Kept together so the rhythm of the step is readable in
+   one place rather than spread across inline styles in the page. */
+.ob-back { margin-bottom: var(--sp-3); }
+.ob-mark { margin-bottom: var(--sp-4); }
+.ob-lead { margin-bottom: var(--sp-5); }
+
+/* Onboarding step dots. */
+.steps { display: flex; gap: 5px; margin-bottom: var(--sp-6); }
+.step-dot { flex: 1; height: 4px; border-radius: var(--radius-pill); background: var(--border); }
+.step-dot.is-active { background: var(--brand); }
+
+/* Chart type. SVG text sized by attribute sits outside the type scale entirely
+   — the axis stayed at a literal 11px while every other size stepped up at
+   ≥1100px. Styling it in CSS puts it back under the tokens. */
+.chart-canvas text { font-size: var(--fs-xs); fill: var(--muted); }
+.chart-canvas svg { display: block; }
+
+/* Prose measure. Any run of sentences — as opposed to a label, a value or a
+   single row of metadata — carries one of these. Without it a card in the
+   1040px desktop column sets ~130 characters per line. */
+.prose       { max-width: var(--measure); }
+.prose-tight { max-width: var(--measure-tight); }
+.center .prose, .center .prose-tight,
+.prose.center, .prose-tight.center { margin-inline: auto; }
+
+/* Page heading. Was an inline marginBottom on every page's h1. */
+.page-title { margin-bottom: var(--sp-4); }
+
+/* The one big number a screen is about. Was inline font styles on the hero. */
+.figure {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lead paragraph under a page heading — 16px, not the 12.5px secondary tone.
+   A lead set two steps below its heading reads as a caption, not an intro. */
+.lead {
+  font-size: var(--fs-lg);
+  line-height: 1.45;
+  color: var(--muted-on-bg);
+  max-width: var(--measure);
+}
+
+/* A value sitting inline beside its label — the small counterpart to .figure. */
+.stat-inline { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Utilities — deliberately few. Anything used more than twice earns a class. */
+.row      { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.row-tight { margin-bottom: var(--sp-2); }
+.col      { display: flex; flex-direction: column; gap: var(--sp-1); }
+.grow     { flex: 1; min-width: 0; }
+.spacer   { flex: 1; }
+.center   { text-align: center; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nums     { font-variant-numeric: tabular-nums; }
+
+/* Three greys, and the surface each is legal on. Picking the wrong one is the
+   most repeated accessibility bug in both source apps, so the class name says
+   where it may be used rather than what shade it is. */
+.muted       { color: var(--muted);       font-size: var(--fs-sm); } /* on a card */
+.muted-2     { color: var(--muted-2);     font-size: var(--fs-sm); } /* on a card, tertiary */
+.muted-on-bg { color: var(--muted-on-bg); font-size: var(--fs-sm); } /* on the page */
+
+/* ── 10. Responsive ──────────────────────────────────────────────────────── */
+/* <700px  phone: floating pill nav, full-width bottom sheets.
+   ≥700px  tablet/desktop: nav becomes a left sidebar, sheets become centred
+           cards, content gets a reading width.                              */
+
+@media (min-width: 700px) {
+  .app-shell {
+    flex-direction: row; align-items: stretch;
+    width: 100%; max-width: 1280px;
+  }
+
+  .bottom-nav {
+    position: sticky; order: -1;
+    top: 0; left: auto; bottom: auto; transform: none;
+    width: var(--sidebar-w); max-width: var(--sidebar-w);
+    height: 100dvh;
+    flex-direction: column; align-items: stretch;
+    /* Navigation belongs where reading starts. As a bottom bar turned sidebar
+       it would inherit centring and strand the items mid-rail. */
+    justify-content: flex-start;
+    gap: 6px; padding: 26px var(--sp-4);
+    border: none; border-right: 1px solid var(--border); border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* The sidebar has room for an identity the phone bar doesn't. It leads the
+     rail — order -2 keeps it above the FAB, which is itself pulled above the
+     nav items by order -1. */
+  .nav-brand {
+    order: -2;
+    display: flex; align-items: center; gap: 10px;
+    padding: var(--sp-1) 10px var(--sp-5);
+    font-family: var(--font-display); font-weight: 800;
+    font-size: var(--fs-lg); color: var(--brand-deep);
+  }
+  .nav-brand-icon {
+    width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+    background: var(--brand-wash); color: var(--brand-deep);
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .nav-item {
+    flex-direction: row; justify-content: flex-start;
+    width: 100%; gap: 11px; padding: 11px var(--sp-4);
+    border-radius: var(--radius-sm);
+  }
+  .nav-item:hover { background: var(--brand-wash); }
+  .nav-item .nav-label { font-size: var(--fs-sm); }
+  .nav-item svg { width: 18px; height: 18px; }
+
+  .nav-pill { width: 100%; justify-content: flex-start; padding: 11px var(--sp-4); }
+  .nav-pill svg { width: 18px; height: 18px; }
+  .nav-pill span { font-size: var(--fs-sm); }
+
+  /* The primary action shouldn't be a mystery circle: on desktop it leads the
+     sidebar as a labelled button. */
+  .fab {
+    order: -1; width: 100%; height: auto;
+    border-radius: var(--radius-sm);
+    padding: 11px var(--sp-4); margin-bottom: var(--sp-4);
+  }
+  .fab-label { display: inline; font-size: var(--fs-sm); font-weight: 700; }
+
+  .main-content {
+    flex: 1; max-width: var(--content-w); margin: 0 auto;
+    /* nav is a sidebar at this width, so no bottom clearance — but a tablet in
+       standalone still has a top inset to clear. */
+    padding: calc(var(--sp-6) + env(safe-area-inset-top, 0px)) var(--sp-6) 48px;
+  }
+
+  /* Padding scales with the card. 16px inside a 976px card reads as a crop,
+     not as breathing room — the ratio of frame to content is what makes a card
+     feel composed. */
+  .card       { padding: var(--sp-5); }
+  .card-hero  { padding: var(--sp-5); }
+
+  .card-grid   { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .choice-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  /* Sheets become centred cards. */
+  .overlay { align-items: center; padding: 28px; }
+  .sheet {
+    max-width: 620px; max-height: 84dvh;
+    border-radius: 26px;
+    padding: 22px var(--sp-5) 26px;
+    animation: sheetPop var(--dur-mid) var(--ease-pop);
+  }
+  .sheet-split { padding: 0; }
+  .sheet-handle { display: none; }
+
+  /* Auth / onboarding stay a phone-width column even on a wide screen: a login
+     form stretched to 1200px is not a login form. */
+  .auth-page, .onboarding { max-width: var(--shell-w); margin: 0 auto; }
+}
+@keyframes sheetPop { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@media (min-width: 1100px) {
+  .app-shell    { max-width: 1600px; }
+  .main-content { max-width: var(--content-w-lg); }
+  .card-grid    { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .choice-grid  { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+  /* Two-column dashboard. Placement is explicit so the single-column DOM order
+     below this breakpoint stays exactly as authored. */
+  .split-grid {
+    display: grid; gap: var(--sp-3); align-items: start;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  }
+  .split-a { grid-column: 1; grid-row: 1; }
+  .split-c { grid-column: 1; grid-row: 2; }
+  .split-b { grid-column: 2; grid-row: 1 / span 2; }
+}
+
+@media (min-width: 1400px) {
+  .main-content { max-width: 1180px; }
+}
+
+/* Belt and braces for iOS: any control that slipped below 16px would zoom the
+   page on focus. */
+@media (max-width: 699px) {
+  input, select, textarea { font-size: var(--fs-lg) !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* ── Auth page ───────────────────────────────────────────────────────────── */
+.auth-page {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--sp-4); min-height: 100dvh; padding: var(--sp-6) var(--sp-5);
+  text-align: center;
+}
+.auth-mark {
+  width: 58px; height: 58px; border-radius: 19px;
+  background: linear-gradient(135deg, var(--brand-soft), var(--brand-deep));
+  color: var(--on-brand);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-brand);
+}
+.auth-title { font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 800; letter-spacing: -.4px; }
+/* on --bg, not on a card — needs the deeper muted tone to clear AA */
+.auth-sub  { font-size: var(--fs-md); color: var(--muted-on-bg); max-width: 300px; }
+.auth-note { font-size: var(--fs-xs); color: var(--muted-on-bg); max-width: 280px; line-height: 1.5; }
+
+/* ============================================================================
+   STACK ADDITIONS — components added by this app, per the kit's house rule.
+   ============================================================================
+   Paired with the "STACK ADDITIONS" block in components/UI.jsx. Every value is
+   a token: swapping theme.css re-skins all of this, including the heat ramp,
+   which is derived from --brand-rgb rather than a hardcoded scale.
+
+   Promote the generic ones (.ring, .heatmap) back into the shared template if a
+   second app in the family needs them.
+   ========================================================================== */
+
+/* ── Meta pills ──────────────────────────────────────────────────────────── */
+.meta-pill {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  padding: 3px var(--sp-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs); font-weight: 600; line-height: 1.4;
+  background: var(--neutral-wash); border: 1px solid var(--neutral-line);
+  color: var(--neutral-ink);
+}
+.meta-pill svg { width: 12px; height: 12px; flex: none; }
+.meta-pill-brand  { background: var(--brand-wash);  border-color: var(--brand-line);  color: var(--brand-deep); }
+.meta-pill-warn   { background: var(--warn-wash);   border-color: var(--warn-line);   color: var(--warn-ink); }
+.meta-pill-danger { background: var(--danger-wash); border-color: var(--danger-line); color: var(--danger-ink); }
+
+/* ── Task row ────────────────────────────────────────────────────────────────
+   The whole row is the target, not just the ring — the ring is 26px, well under
+   --tap, and this list gets used one-handed at 6:30am. */
+.task-row {
+  display: flex; align-items: flex-start; gap: var(--sp-3); width: 100%;
+  min-height: var(--tap);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-2);
+  text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: var(--surface);
+  backdrop-filter: blur(var(--surface-blur));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              opacity var(--dur-fast) var(--ease-out);
+}
+.task-row:active { transform: scale(.98); }
+
+.task-ring {
+  flex: none; width: 26px; height: 26px; margin-top: 1px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  color: transparent;
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+}
+.task-ring svg { width: 15px; height: 15px; }
+
+.task-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.task-name {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: var(--fs-md); line-height: 1.3;
+}
+.task-detail { font-size: var(--fs-sm); color: var(--muted); line-height: 1.45; }
+.task-meta { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
+
+/* Done: dimmed and struck, but never hidden — the list is also a record of what
+   the day contained, so a completed step still has to be readable. */
+.task-row.is-done { background: var(--surface-2); box-shadow: none; }
+.task-row.is-done .task-ring {
+  background: var(--ok); border-color: var(--ok); color: var(--on-dark);
+}
+.task-row.is-done .task-name { text-decoration: line-through; opacity: .55; }
+.task-row.is-done .task-detail,
+.task-row.is-done .task-meta { opacity: .45; }
+
+/* ── Completion ring ─────────────────────────────────────────────────────── */
+.ring { position: relative; width: 132px; height: 132px; flex: none; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 9; stroke-linecap: round; }
+.ring-track { stroke: var(--neutral-line); }
+.ring-value {
+  stroke: var(--brand);
+  transition: stroke-dashoffset var(--dur-slow) var(--ease-out), stroke var(--dur-mid) var(--ease-out);
+}
+.ring-value.is-complete { stroke: var(--ok); }
+.ring-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px;
+}
+.ring-center b {
+  font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 800;
+  letter-spacing: -1px; line-height: 1;
+}
+.ring-center small { font-size: var(--fs-xs); color: var(--muted); }
+
+/* ── Heatmap ─────────────────────────────────────────────────────────────────
+   Seven equal columns. The ramp is built from --brand-rgb with stepped alpha
+   rather than seven literal colours, so it survives a theme swap — the same
+   trick the kit uses for shadows. */
+.heatmap {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: var(--sp-1); width: 100%;
+}
+.heat-cell { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); min-width: 0; }
+.heat-label { font-size: var(--fs-xs); color: var(--muted); font-weight: 600; }
+.heat-label.is-today { color: var(--brand); }
+.heat-dot {
+  width: 100%; aspect-ratio: 1; max-width: 46px;
+  border-radius: var(--radius-xs);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--fs-xs); font-weight: 700;
+  border: 1px solid var(--border);
+  background: var(--neutral-wash); color: var(--muted);
+}
+.heat-pct { font-size: var(--fs-xs); color: var(--muted); min-height: 1em; }
+
+.heat-none   { background: var(--neutral-wash); color: var(--muted-2); }
+.heat-future { background: transparent; border-style: dashed; color: transparent; }
+.heat-1 { background: rgb(var(--brand-rgb) / .12); color: var(--brand-deep); }
+.heat-2 { background: rgb(var(--brand-rgb) / .26); color: var(--brand-deep); }
+.heat-3 { background: rgb(var(--brand-rgb) / .42); color: var(--on-brand); }
+.heat-4 { background: rgb(var(--brand-rgb) / .60); color: var(--on-brand); }
+.heat-5 { background: rgb(var(--brand-rgb) / .80); color: var(--on-brand); }
+.heat-perfect { background: var(--ok); border-color: var(--ok); color: var(--on-dark); }
+/* Today gets a ring rather than a fill, so "today" and "perfect" can coexist. */
+.heat-dot.is-today { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* ── Day rows (recap detail list) ────────────────────────────────────────── */
+.day-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) 0; }
+.day-row + .day-row { border-top: 1px solid var(--border); }
+.day-row-name { width: 34px; flex: none; font-size: var(--fs-sm); font-weight: 700; }
+.day-row.is-today .day-row-name { color: var(--brand); }
+.day-row.is-future { opacity: .5; }
+.day-row-stats { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
