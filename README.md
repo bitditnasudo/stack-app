@@ -24,5 +24,12 @@ npm run dev
 Ship with:
 
 ```bash
-npm run deploy && git push
+npm run ship
 ```
+
+That bumps the deploy counter, commits it and pushes; Vercel builds from the
+push. It's a script rather than `npm run deploy && git push` because the dev
+machine runs Windows PowerShell 5.1, which has no `&&` — npm runs scripts
+through `cmd.exe`, which does.
+
+Distribution is the installed PWA only. The Play Store wrapper is retired.

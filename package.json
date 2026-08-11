@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy:bump": "node scripts/bump-deploy.js",
-    "deploy": "node scripts/bump-deploy.js --commit"
+    "deploy": "node scripts/bump-deploy.js --commit",
+    "ship": "npm run deploy && git push"
   },
   "dependencies": {
     "date-fns": "^3.6.0",

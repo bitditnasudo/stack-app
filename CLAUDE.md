@@ -290,23 +290,39 @@ was force-pushed. If you ever need the reference implementation and the copy in
 npm install
 npm run dev        # local
 npm run build      # production build
-npm run deploy     # bump the deploy counter and commit it — does NOT push
-git push           # Vercel builds from git
+npm run ship       # bump the counter, commit it, push — the whole ritual
 ```
 
+`ship` exists because the obvious `npm run deploy && git push` is a trap on this
+machine: the dev shell is **Windows PowerShell 5.1, which has no `&&`** and
+fails to parse the line before running any of it. npm runs its scripts through
+`cmd.exe` on Windows, where `&&` is fine, so putting the chain inside a script
+makes it work from PowerShell, cmd and bash alike. `npm run deploy` on its own
+still bumps and commits without pushing.
+
 The Settings footer prints `v2.0.0 · deploy #N · N commits · sha · built date`.
-Ship with `npm run deploy && git push` so the counter stays honest. The counter
-has to be incremented locally because a Vercel build is a throwaway container
-with nowhere to write it back to. See `../../VANTARCO APP DATABASE/template/README.md`
+Always ship through `ship` so the counter stays honest — a plain `git push`
+deploys a build whose footer claims the previous deploy number. The counter has
+to be incremented locally because a Vercel build is a throwaway container with
+nowhere to write it back to. See `../../VANTARCO APP DATABASE/template/README.md`
 for the full mechanics.
 
 `vercel.json` carries the SPA rewrite and the CSP. **`connect-src 'self'` will
 block any third-party API call** — add the specific origin rather than widening
 it. STACK makes none today.
 
+### The APK is dropped — decided, not pending
+
 The old Play Store artefacts (`../STACK - Google Play package/`) point at the
-GitHub Pages origin. If the APK should follow, it needs re-wrapping against the
-Vercel URL and the `assetlinks.json` updated. Not done.
+GitHub Pages origin and are **dead**. STACK ships as an installed PWA from
+Vercel and nothing else. Do not re-wrap it, do not update `assetlinks.json`, do
+not treat that directory as work-in-progress — the user closed this in Aug 2026.
+
+The practical consequence: "install" means Add to Home Screen from the Vercel
+URL, so there is no Play Store update channel and no review lag. A deploy is
+live the moment the service worker picks it up. That is the *reason* `sw.js` is
+network-first for navigations — with no store build to fall back on, a stale
+cached `index.html` would be the only copy of the app on the phone.
 
 ---
 
