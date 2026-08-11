@@ -275,6 +275,17 @@ already built:
 
 ## Deploy
 
+**Live at <https://stack-app-flame-phi.vercel.app>.** Vercel project
+`vantarco/stack-app`, git-connected to `github.com/bitditnasudo/stack-app` and
+building `main` on every push. Vite is auto-detected: `vite build` → `dist`, no
+build settings configured by hand.
+
+That repo is the *same* repo the old single-file PWA lived in. Its history was
+not discarded — the Vite tree arrived as a `-s ours` merge with the old `main`
+as a parent, so `git show ee1710d:index.html` still returns the old app. Nothing
+was force-pushed. If you ever need the reference implementation and the copy in
+`../index.html` is gone, that is where it is.
+
 ```bash
 npm install
 npm run dev        # local

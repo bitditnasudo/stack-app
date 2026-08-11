@@ -4,7 +4,10 @@ Daily skincare, supplement and training protocol tracker. One user, no server,
 no accounts. Installed as a PWA.
 
 Built on the [Vantarco UI template](../../VANTARCO%20APP%20DATABASE/) — React 18
-+ Vite 5 + react-router-dom, deployed on Vercel.
++ Vite 5 + react-router-dom, on the kit's **wine** theme.
+
+**Live:** <https://stack-app-flame-phi.vercel.app> — Vercel project
+`vantarco/stack-app`, building from `main` of this repo.
 
 ```bash
 npm install
