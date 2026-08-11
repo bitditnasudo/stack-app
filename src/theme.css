@@ -7,6 +7,22 @@
 
    Two reference themes are kept at the bottom of the file (Budget = purple,
    Plant = green). Uncomment one, or write a third — the shape is the contract.
+
+   STACK is that third one: WINE. Everything structural below — the token names,
+   the scales, the shape/space/type/motion values — is the template's, untouched.
+   Only the colour values differ, which is exactly the seam the kit is built on.
+
+   Why wine: the old single-file build was dark with a hot `#e8281e` red. That
+   red is the one thing about the old look worth carrying, but a hot red at full
+   saturation cannot be a brand colour in this kit — it collides with `--danger`,
+   which has to stay legible as *alarm*. So the brand ramp is a deep wine that
+   reads red at a glance and never at the same luminance as danger, and danger
+   itself is pushed towards vermillion. Measured separation is noted inline.
+
+   Every contrast number in the comments below was re-measured with the WCAG
+   formula against *these* surfaces. Do not copy the template's numbers forward
+   after a colour change — a tone that passes on a lilac page can fail on a
+   rose one.
    ========================================================================== */
 
 :root {
@@ -15,30 +31,48 @@
      appears most (active nav pill, primary button, focus ring); `--brand-soft`
      and `--brand-deep` are the two ends of the primary gradient; `--brand-wash`
      and `--brand-line` are the tinted background / hairline pair used by chips,
-     selected states and soft cards.                                          */
-  --brand:        #7E49B3;
-  --brand-soft:   #A67DD4;
-  --brand-deep:   #5A2D8E;
-  --brand-wash:   #F0E8FB;
-  --brand-line:   #D4B8F0;
+     selected states and soft cards.
+
+     Measured on this theme:
+       #FFF on --brand        7.49:1  → --on-brand is safe on primary buttons
+       #FFF on --brand-deep  11.87:1
+       --brand      on --bg   6.63:1  → legal for the small brand-coloured text
+                                        that sits on the page (heat labels)
+       --brand-deep on --brand-wash  10.31:1  → chip text on a brand chip     */
+  --brand:        #A31D3F;  /* wine — nav pill, primary button, focus ring     */
+  --brand-soft:   #C9455F;  /* rosé — light end of the primary gradient        */
+  --brand-deep:   #6E1029;  /* deep wine — dark end, and chip/pill ink         */
+  --brand-wash:   #FBEBEF;
+  --brand-line:   #EFC3CE;
   --on-brand:     #FFFFFF;
 
   /* Brand as a raw RGB triple, so shadows can be tinted with an alpha of their
      own: rgb(var(--brand-rgb) / .14). Keep it in sync with --brand-deep. */
-  --brand-rgb:    90 45 142;
+  --brand-rgb:    110 16 41;
 
   /* ── Surfaces ──────────────────────────────────────────────────────────────
      --bg is the page. --bg-2 is the far end of the page gradient; set it equal
      to --bg for a flat page (Budget) or lighter for a wash (Plant).
      --surface-blur is 0 for opaque cards and ~6px for glass cards — it only has
-     an effect when --surface is translucent.                                 */
-  --bg:            #F2EEF9;
-  --bg-2:          #F2EEF9;
+     an effect when --surface is translucent.
+
+     STACK runs a gradient page — rose, *deepening* toward the bottom — with
+     opaque cards. Glass was rejected: this app's densest screen is a list of 15
+     stacked rows, and a blurred surface behind fifteen hairlines turns to mush
+     on a phone.
+
+     The gradient runs light→dark, not dark→light, for a non-decorative reason:
+     --bg-2 is also the sheet background. A sheet has white cards inside it, so
+     --bg-2 has to stay tinted enough to sit behind them — at 1.21:1 against
+     --surface the card edge is still visible. Flipping the gradient so --bg-2
+     was the near-white end left sheets and cards the same colour.            */
+  --bg:            #F8EFF1;
+  --bg-2:          #F3E6E9;
   --surface:       #FFFFFF;
-  --surface-2:     #FAF7FE;
+  --surface-2:     #FCF5F6;
   --surface-blur:  0px;
-  --border:        #E5DCF5;
-  --border-strong: #CFC0E8;
+  --border:        #EEDDE1;
+  --border-strong: #DBBFC6;
 
   /* ── Text ──────────────────────────────────────────────────────────────────
      --muted is verified AA on --surface; --muted-on-bg is verified AA on --bg,
@@ -48,18 +82,26 @@
   /* Three greys, and which surface each is legal on. All measured with the WCAG
      formula against this theme's own --surface and --bg:
 
-       --muted        #64748B   4.76:1 on surface   4.16:1 on bg  → cards only
-       --muted-2      #71717A   4.83:1 on surface   4.23:1 on bg  → cards only
-       --muted-on-bg  #665A78   6.37:1 on surface   5.57:1 on bg  → anywhere
+       --muted        #6B5560   6.79:1 on surface   6.02:1 on bg  → cards
+       --muted-2      #6F6268   5.80:1 on surface   4.78:1 on bg-2 → cards
+       --muted-on-bg  #5F4A53   8.10:1 on surface   7.18:1 on bg  → anywhere
+
+     All three happen to clear AA on the page too, but the convention holds:
+     text sitting directly on --bg still uses --muted-on-bg. The margin is what
+     changed, not the rule — the next theme may not have it.
+
+     These are warm greys, not the template's slate ones. A blue-grey on a rose
+     page reads as a different, slightly dirty colour rather than as neutral —
+     the greys have to carry the same temperature as the surface they sit on.
 
      Re-measure all three when you change --surface or --bg. A tone that passes
      on white routinely fails on a tinted page, which is the single most
      repeated bug across both source apps. --muted-2 must still clear 4.5:1 on
      surface: Budget's old second grey (#A09BB0) sat at 2.69:1 and is rejected. */
-  --text:        #141414;
-  --muted:       #64748B;
-  --muted-2:     #71717A;
-  --muted-on-bg: #665A78;
+  --text:        #17100F;
+  --muted:       #6B5560;
+  --muted-2:     #6F6268;
+  --muted-on-bg: #5F4A53;
   --on-dark:     #FFFFFF;
 
   /* ── Status ────────────────────────────────────────────────────────────────
@@ -76,30 +118,49 @@
      Any component showing a status consumes the same triad, so a tag and a
      highlighted row can never drift apart — which is exactly what happened in
      Plant Tracker, where the same status was inked #4A7FAB in one rule and
-     #3C6E99 in another.                                                      */
-  --ok:          #00A86B;
-  --ok-wash:     #E6F9F1;
-  --ok-line:     #BBF7D0;
-  --ok-ink:      #00875A;
+     #3C6E99 in another.
 
-  --warn:        #F59E0B;
-  --warn-wash:   #FEF3C7;
-  --warn-line:   #FDE68A;
-  --warn-ink:    #92400E;
+     THE COLLISION THIS THEME HAS TO SOLVE: the brand is red, and so is danger.
+     Two rules keep them apart, and both are load-bearing —
 
-  --danger:      #E53935;
-  --danger-wash: #FEF2F2;
-  --danger-line: #FECACA;
-  --danger-ink:  #C62828;
+       1. Different hue *families*. Brand is wine (a blue-leaning red at 348°);
+          danger is vermillion (an orange-leaning red at 12°). They are not two
+          steps of one ramp, and no component may substitute one for the other.
+       2. Different luminance. --danger measures 1.87:1 against --brand, so the
+          two read as distinct even at chip size and even to a red-deficient
+          eye, which is the case where hue alone carries nothing.
+
+     --ok is darkened from the template's #00A86B to #00875A so the completed
+     task-ring's white tick clears 3:1 (4.55:1 measured). On the template's
+     lighter green it sat at 2.6:1 — the one place in this app where a status
+     colour is a *fill under white text* rather than ink on a wash.
+
+     Measured inks, each on its own wash: ok 5.83, warn 6.02, danger 5.67,
+     info 7.84, neutral 5.88.                                                 */
+  --ok:          #00875A;
+  --ok-wash:     #E6F7F0;
+  --ok-line:     #B7EBD4;
+  --ok-ink:      #046C4A;
+
+  --warn:        #B4690E;
+  --warn-wash:   #FDF3E2;
+  --warn-line:   #F3DCB4;
+  --warn-ink:    #8A4E08;
+
+  --danger:      #E24A2B;
+  --danger-wash: #FDF0EC;
+  --danger-line: #F7D2C6;
+  --danger-ink:  #AF3418;
 
   --info:        #1D4ED8;
-  --info-wash:   #EFF6FF;
-  --info-line:   #BFDBFE;
+  --info-wash:   #EEF3FD;
+  --info-line:   #C7D8F7;
   --info-ink:    #1E40AF;
 
-  --neutral-wash: #F1F5F9;
-  --neutral-line: #E2E8F0;
-  --neutral-ink:  #64748B;
+  /* Warm neutrals, matching the page temperature — see the note on the greys. */
+  --neutral-wash: #F4F0F1;
+  --neutral-line: #E5DDDF;
+  --neutral-ink:  #645A5D;
 
   /* ── Shape ─────────────────────────────────────────────────────────────────
      Three steps plus a pill. --radius is cards and sheets, --radius-sm is

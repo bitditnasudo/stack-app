@@ -2,8 +2,10 @@
    APP CONFIG — identity, navigation and storage key for STACK.
    ============================================================================
    Together with theme.css this is the whole "what app is this?" surface.
-   STACK deliberately ships the *stock* Vantarco theme — theme.css is unmodified
-   from the template, so this app re-skins with the family and nothing else.
+   STACK runs the Vantarco kit with its own theme — the WINE token set in
+   theme.css. Only colour values differ from the template; every token name,
+   scale and component rule is the kit's. That is the seam: nothing outside
+   theme.css knows what colour this app is.
    ========================================================================== */
 
 import { ListChecks, PieChart, CalendarRange, Settings } from 'lucide-react'

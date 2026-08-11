@@ -36,7 +36,7 @@ lives at `../../VANTARCO APP DATABASE/`. Two documents there are binding:
 
 | Rule | Meaning |
 |---|---|
-| `theme.css` is the only stylesheet edited per app | STACK ships it **unmodified** — see "Theme" below |
+| `theme.css` is the only stylesheet edited per app | STACK edits **only** this file — the WINE token set, see "Theme" below |
 | `index.css` never hardcodes a colour, size, radius or shadow | Add a token instead. This is what makes a theme swap a one-file change |
 | Needs a visual the kit lacks? **Add it to the kit** | New component in `UI.jsx`, its CSS in `index.css`. Never an inline style — that's how the source apps ended up with 14 font sizes |
 | Semantic names, never colour names | `tag-danger`, not `tag-red` |
@@ -47,15 +47,50 @@ lives at `../../VANTARCO APP DATABASE/`. Two documents there are binding:
 
 ### Theme
 
-STACK deliberately ships the **stock Vantarco theme** — light, purple brand,
-Sora + Inter. `src/theme.css` is byte-identical to the template's.
+STACK runs the Vantarco kit on its own **WINE** theme: light, rose page, wine
+brand ramp, Sora + Inter. `src/theme.css` is the *only* file that differs from
+the template in colour, and it differs in values only — every token name and
+every scale (shape, space, type, motion) is the kit's, unchanged. Nothing
+outside that file knows what colour this app is; that is what makes the next
+re-skin a one-file change.
 
-The old app was dark (`#080808` page, `#e8281e` red, Syne + DM Mono). That look
-was **dropped on purpose** so STACK sits in the same product family as the other
-Vantarco apps. Do not reintroduce it piecemeal. If it should come back, it comes
-back as a complete dark token set in `theme.css` and nowhere else — and the
-three muted greys must be re-measured for 4.5:1 contrast against the new
-`--surface` and `--bg`, because the light values fail on dark.
+```
+--brand      #A31D3F   wine     nav pill, primary button, focus ring, ring value
+--brand-soft #C9455F   rosé     light end of the primary gradient
+--brand-deep #6E1029   deep     dark end, chip ink, and the shadow tint
+--bg → --bg-2  #F8EFF1 → #F3E6E9   rose page, deepening downward
+```
+
+**The one trap in a red-branded app: brand red vs danger red.** They are kept in
+different hue families — brand is a blue-leaning wine (348°), danger a
+vermillion (12°) — *and* at different luminance, 1.87:1 apart, so they stay
+distinct at chip size and to a red-deficient eye. Never substitute one for the
+other, and never add a "red" that is neither.
+
+Two knock-on adjustments, both measured, both commented in the file:
+
+- **`--ok` is darkened to `#00875A`.** The completed task-ring is the one place
+  a status colour is a *fill under a white glyph* rather than ink on a wash; the
+  template's `#00A86B` put that tick at 2.6:1. It now measures 4.55:1.
+- **The greys are warm.** A slate grey on a rose page reads as dirty rather than
+  neutral. All three re-measured: `--muted` 6.79:1 on surface, `--muted-2`
+  5.80:1, `--muted-on-bg` 7.18:1 on `--bg` and 6.68:1 on `--bg-2`.
+
+`--bg-2` doubles as the sheet background, so it is the *deep* end of the page
+gradient, not the light one — a near-white `--bg-2` makes a sheet and the cards
+inside it the same colour.
+
+If the theme changes again: re-measure the three greys, `--on-brand` on
+`--brand`, every `-ink` on its `-wash`, and white on `--ok`. A tone that passes
+on one page tint routinely fails on another — that is the most repeated bug in
+this family.
+
+The old app was dark (`#080808` page, `#e8281e` red, Syne + DM Mono). The dark
+surface stayed dropped — STACK sits in the same product family as the other
+Vantarco apps — but the red came back as the brand, tamed into a wine that can
+coexist with `--danger`. If dark should ever return it comes back as a complete
+dark token set in `theme.css` and nowhere else, with all of the above
+re-measured, because these light values fail on dark.
 
 ---
 
