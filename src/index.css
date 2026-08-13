@@ -316,6 +316,11 @@ button, input, select, textarea { font-family: inherit; }
   border-radius: var(--radius-pill); padding: 3px 9px;
   font-size: var(--fs-xs); font-weight: 700; white-space: nowrap;
 }
+/* The gap above only means something if a tag can hold an icon, so size one
+   here rather than per call site — a lucide icon with no size prop renders at
+   24px and blows the pill open. Sized in CSS, not by attribute, so it tracks
+   the tag's own type step. */
+.tag svg { width: 12px; height: 12px; flex: none; }
 .tag-ok      { background: var(--ok-wash);      color: var(--ok-ink); }
 .tag-warn    { background: var(--warn-wash);    color: var(--warn-ink); }
 .tag-danger  { background: var(--danger-wash);  color: var(--danger-ink); }
@@ -864,23 +869,12 @@ button, input, select, textarea { font-family: inherit; }
    a token: swapping theme.css re-skins all of this, including the heat ramp,
    which is derived from --brand-rgb rather than a hardcoded scale.
 
-   Promote the generic ones (.ring, .heatmap) back into the shared template if a
-   second app in the family needs them.
+   Audited 2026-08-12. .ring and .heatmap were both weighed for promotion into
+   the shared kit and both stay here — the reasoning is in the matching header in
+   components/UI.jsx. Revisit if a second app in the family ever draws a
+   single-value arc or a day grid; until then they would be kit CSS with one
+   consumer, which is how a shared kit rots.
    ========================================================================== */
-
-/* ── Meta pills ──────────────────────────────────────────────────────────── */
-.meta-pill {
-  display: inline-flex; align-items: center; gap: var(--sp-1);
-  padding: 3px var(--sp-2);
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-xs); font-weight: 600; line-height: 1.4;
-  background: var(--neutral-wash); border: 1px solid var(--neutral-line);
-  color: var(--neutral-ink);
-}
-.meta-pill svg { width: 12px; height: 12px; flex: none; }
-.meta-pill-brand  { background: var(--brand-wash);  border-color: var(--brand-line);  color: var(--brand-deep); }
-.meta-pill-warn   { background: var(--warn-wash);   border-color: var(--warn-line);   color: var(--warn-ink); }
-.meta-pill-danger { background: var(--danger-wash); border-color: var(--danger-line); color: var(--danger-ink); }
 
 /* ── Task row ────────────────────────────────────────────────────────────────
    The whole row is the target, not just the ring — the ring is 26px, well under
@@ -922,6 +916,12 @@ button, input, select, textarea { font-family: inherit; }
 }
 .task-detail { font-size: var(--fs-sm); color: var(--muted); line-height: 1.45; }
 .task-meta { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
+/* The kit's .tag is nowrap because a status chip is one or two words. The
+   qualifiers on a protocol step are sentences — "Wait 10–15 min until bone-dry
+   before next step" — and at 375px that is wider than the column the row sits
+   in, so nowrap pushes the page sideways. Scoped to this container: everywhere
+   else in the app a tag is still a chip and still must not break. */
+.task-meta .tag { white-space: normal; line-height: 1.4; text-align: left; }
 
 /* Done: dimmed and struck, but never hidden — the list is also a record of what
    the day contained, so a completed step still has to be readable. */

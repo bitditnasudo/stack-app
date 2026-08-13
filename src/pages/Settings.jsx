@@ -13,7 +13,7 @@
 import { useEffect, useState } from 'react'
 import { Bell, BellOff, Download, Upload, Trash2, Clock } from 'lucide-react'
 import { PageHeader } from '../components/AppShell.jsx'
-import { Card, SectionHead, Button, Tag, Field, Sheet, Toast, MetaPill } from '../components/UI.jsx'
+import { Card, SectionHead, Button, Tag, Field, Sheet, Toast } from '../components/UI.jsx'
 import { Signature } from '../components/Signature.jsx'
 import { useStore } from '../lib/store.jsx'
 import {
@@ -127,7 +127,7 @@ export default function Settings() {
               {n.title}
               <small>{n.body}</small>
             </div>
-            <MetaPill icon={<Clock />}>{formatFireTime(n)}</MetaPill>
+            <Tag tone="neutral"><Clock />{formatFireTime(n)}</Tag>
           </div>
         ))}
       </Card>

@@ -11,7 +11,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RotateCcw, Clock, Hourglass, AlertTriangle } from 'lucide-react'
 import { PageHeader } from '../components/AppShell.jsx'
-import { Card, SectionHead, Tag, Progress, TaskRow, MetaPill, Toast } from '../components/UI.jsx'
+import { Card, SectionHead, Tag, Progress, TaskRow, Toast } from '../components/UI.jsx'
 import { BLOCKS, TAG_TONE } from '../lib/protocol.js'
 import { formatLongDay } from '../lib/dates.js'
 import { useToday } from '../lib/useToday.js'
@@ -78,9 +78,11 @@ export default function Today() {
                 detail={task.detail}
                 onToggle={() => onToggle(task)}
               >
-                {task.target && <MetaPill tone="brand" icon={<Clock />}>{task.target}</MetaPill>}
-                {task.warn   && <MetaPill tone="danger" icon={<AlertTriangle />}>{task.warn}</MetaPill>}
-                {task.wait   && <MetaPill tone="warn" icon={<Hourglass />}>{task.wait}</MetaPill>}
+                {/* Icons are unsized on purpose — .tag sizes its own svg, so the
+                    type step stays a CSS decision. */}
+                {task.target && <Tag tone="brand"><Clock />{task.target}</Tag>}
+                {task.warn   && <Tag tone="danger"><AlertTriangle />{task.warn}</Tag>}
+                {task.wait   && <Tag tone="warn"><Hourglass />{task.wait}</Tag>}
                 {task.tags.map(t => <Tag key={t} tone={TAG_TONE[t] || 'neutral'}>{t}</Tag>)}
               </TaskRow>
             ))}

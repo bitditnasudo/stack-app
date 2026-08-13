@@ -217,21 +217,23 @@ export function Steps({ count, current }) {
    from theme.css; nothing below hardcodes a colour, size, radius or shadow, so
    the theme swap still re-skins them.
 
-   Candidates for promotion: <Ring> and <Heatmap> are generic enough that any
-   tracker in the family would want them. <TaskRow> and <MetaPill> are closer to
-   STACK's domain — leave them here until something else asks.
-   ========================================================================== */
+   Audited 2026-08-12 against the kit and against the other apps in the family.
+   Everything below stays here, for a stated reason:
 
-/** A small qualifier under a task: a clock target, a dwell time, a warning.
- *  tone: 'neutral' | 'brand' | 'warn' | 'danger' */
-export function MetaPill({ tone = 'neutral', icon, children }) {
-  return (
-    <span className={`meta-pill meta-pill-${tone}`}>
-      {icon}
-      {children}
-    </span>
-  )
-}
+   · <TaskRow>  — structurally unlike .list-row (a leading toggle, a stacked
+                  body, a wrapping meta row). Domain, not drift.
+   · <Ring>     — a single-value progress meter. Budget's CategoryRing is a
+                  multi-arc distribution donut with SVG text and runtime colours;
+                  it would not consume this, and no third app draws an arc at
+                  all. Promoting it would put a class in the kit that exactly one
+                  app exercises.
+   · <Heatmap>  — a seven-day completion strip. STACK is the only habit tracker
+                  in the family; nothing else has a use for it yet.
+
+   A <MetaPill> used to live here. It was .tag with a border and one font-weight
+   step, so it was deleted and its call sites moved to <Tag> — see the tag block
+   in index.css.
+   ========================================================================== */
 
 /**
  * One checklist line. The whole row is the hit target — the ring alone is far
