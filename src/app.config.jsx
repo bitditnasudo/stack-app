@@ -59,4 +59,9 @@ export const APP_VERSION  = typeof __APP_VERSION__  !== 'undefined' ? __APP_VERS
 export const BUILD_COMMIT = typeof __BUILD_COMMIT__ !== 'undefined' ? __BUILD_COMMIT__ : 'dev'
 export const BUILD_DATE   = typeof __BUILD_DATE__   !== 'undefined' ? __BUILD_DATE__   : null
 export const COMMIT_COUNT = typeof __COMMIT_COUNT__ !== 'undefined' ? __COMMIT_COUNT__ : 0
-export const DEPLOY_COUNT = typeof __DEPLOY_COUNT__ !== 'undefined' ? __DEPLOY_COUNT__ : 0
+
+/* The version as it is shown: every ship bumps the minor, so the patch is
+   always 0 and printing it is noise. `2.10.0` → `2.10`, which is the tenth
+   release after 2.0 and NOT 2.1 — semver fields are integers, not decimals.
+   A real patch release (2.1.3) would print in full. */
+export const VERSION_LABEL = APP_VERSION.replace(/\.0$/, '')

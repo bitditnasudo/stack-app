@@ -1,6 +1,16 @@
 /* ============================================================================
-   SERVICE WORKER — offline shell + a home for notifications.
+   SERVICE WORKER — the home notifications fire from (and an offline shell).
    ============================================================================
+   THIS FILE SURVIVED THE PWA REMOVAL, ON PURPOSE. STACK is no longer an
+   installable app — no manifest, no home-screen container — but a service
+   worker is not an install feature. Reminders go out through
+   `navigator.serviceWorker.ready` → `registration.showNotification()`, because
+   the plain `new Notification()` constructor is unsupported on Android Chrome
+   and throws. Delete this file and reminders stop working in a browser tab too.
+
+   The caching below is now a bonus rather than the point: it makes a repeat
+   load fast and a flaky connection survivable.
+
    Deliberately different from the old one, which was cache-first over a fixed
    ASSETS list under a hand-bumped `stack-v2` cache name. That meant every
    deploy needed the cache string bumped by hand, and forgetting left an
@@ -27,7 +37,9 @@
 
 const VERSION = '__SW_VERSION__'          // replaced by vite.config.js at build
 const CACHE = `stack-${VERSION}`
-const SHELL = ['/', '/index.html', '/site.webmanifest', '/icon-192.png', '/icon-512.png']
+// No manifest here any more — STACK is not installable. icon-192 stays because
+// notifications reference it, not because a home-screen icon needs it.
+const SHELL = ['/', '/index.html', '/icon-192.png']
 
 self.addEventListener('install', e => {
   e.waitUntil(

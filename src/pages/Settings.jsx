@@ -25,7 +25,7 @@ import {
   scheduleToday, formatFireTime,
 } from '../lib/notifications.js'
 import { notifScheduleFor } from '../lib/routine.js'
-import { APP_VERSION, BUILD_COMMIT, BUILD_DATE, COMMIT_COUNT, DEPLOY_COUNT } from '../app.config.jsx'
+import { VERSION_LABEL, BUILD_COMMIT, BUILD_DATE, COMMIT_COUNT } from '../app.config.jsx'
 
 /** Days always merge; the routine only crosses over if the backup's is newer.
  *  Say which happened — replacing the checklist is a far bigger change than
@@ -301,8 +301,7 @@ export default function Settings() {
       </Card>
 
       <Signature>
-        {`v${APP_VERSION}`}
-        {DEPLOY_COUNT > 0 && ` · deploy #${DEPLOY_COUNT}`}
+        {`v${VERSION_LABEL}`}
         {COMMIT_COUNT > 0 && ` · ${COMMIT_COUNT} commits`}
         {` · ${BUILD_COMMIT}`}
         {BUILD_DATE && ` · built ${new Date(BUILD_DATE).toLocaleDateString()}`}

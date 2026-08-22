@@ -30,10 +30,6 @@ const shallow = git('git rev-parse --is-shallow-repository') === 'true'
 const liveCount = shallow ? 0 : Number(git('git rev-list --count HEAD')) || 0
 const commitCount = Math.max(liveCount, info.commitsAtLastBump || 0)
 
-/* How many deploys have been cut. This one cannot come from git: a Vercel build
- * is ephemeral and can't write a counter anywhere the next build would see it.
- * It's incremented by `npm run deploy` and committed. */
-const deployCount = info.deploys || 0
 
 /* Stamp the service worker's cache name at build time.
  *
@@ -52,7 +48,9 @@ const stampServiceWorker = () => ({
       this.warn('dist/sw.js not found — is public/sw.js still there?')
       return
     }
-    const stamp = `${pkg.version}-${deployCount}-${commit}`
+    // version + commit is already unique per deploy: every ship bumps the
+    // version AND lands a commit, so neither half can repeat on its own.
+    const stamp = `${pkg.version}-${commit}`
     writeFileSync(out, readFileSync(out, 'utf8').replaceAll('__SW_VERSION__', stamp))
   },
 })
@@ -64,6 +62,5 @@ export default defineConfig({
     __BUILD_COMMIT__: JSON.stringify(commit),
     __BUILD_DATE__:   JSON.stringify(new Date().toISOString()),
     __COMMIT_COUNT__: JSON.stringify(commitCount),
-    __DEPLOY_COUNT__: JSON.stringify(deployCount),
   },
 })

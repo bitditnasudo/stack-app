@@ -13,15 +13,20 @@
     <meta name="description" content="Daily skincare, supplement and training protocol tracker." />
 
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/site.webmanifest" />
 
-    <!-- keep in sync with --bg in src/theme.css and background_color in the
-         manifest, or the status bar flashes a different colour on launch -->
+    <!-- STACK IS NOT AN INSTALLABLE PWA ANY MORE. The manifest link and the
+         apple-mobile-web-app-* tags were removed: it is used as a page on
+         Vercel, so there is no home-screen container to configure and those
+         tags only ever applied to one.
+
+         theme-color STAYS — it colours the browser's own UI (Android Chrome's
+         address bar), which is a plain-tab feature, not an install feature.
+         Keep it in sync with --bg in src/theme.css.
+
+         The service worker also stays, and NOT for offline: notifications fire
+         through its registration, because `new Notification()` is unsupported
+         on Android Chrome. See public/sw.js. -->
     <meta name="theme-color" content="#131011" />
-    <meta name="apple-mobile-web-app-title" content="STACK" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

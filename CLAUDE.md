@@ -9,8 +9,8 @@ written for a fresh Claude Code session with no prior context.
 
 **STACK** is a single-user daily protocol tracker: skincare, supplements,
 health and habits, as a checklist that rebuilds itself for whatever kind of day
-it is. It has exactly one user (Arath), runs on his phone as an installed PWA,
-and has no accounts, no server and no network calls.
+it is. It has exactly one user (Arath), runs as a page on Vercel, and has no
+accounts and no server.
 
 **The protocol is editable in the app.** Tasks, the named kinds of day they run
 on, the tags they are grouped by and the time blocks they sit in are all user
@@ -121,9 +121,9 @@ ratio depends on both). If the theme changes again, re-measure all of it — a
 tone that passes on a rose page fails on a black one, which is the most repeated
 bug in this family.
 
-`#131011` also appears in `index.html` (`theme-color`) and
-`public/site.webmanifest` (`background_color`, `theme_color`). Keep all three in
-step or the status bar flashes a different colour on launch.
+`#131011` also appears in `index.html` as `theme-color`, which is what tints
+Android Chrome's address bar. Keep the two in step. (There is no manifest to
+keep in step any more — see "Not a PWA".)
 
 ---
 
@@ -340,12 +340,13 @@ history still lines up.
 
 3. **The service worker cache ritual.** The old `sw.js` was cache-first over a
    fixed asset list under a hand-bumped `stack-v2` name — every deploy required
-   editing that string, and forgetting left the installed PWA serving stale HTML
-   with no way to tell from the phone. **Gone.** `public/sw.js` is network-first
+   editing that string, and forgetting left the app serving stale HTML with no
+   way to tell from the phone. **Gone.** `public/sw.js` is network-first
    for navigations (index.html must never be stale — it carries the hashed
    bundle URL) and cache-first for `/assets/*` (Vite fingerprints them, so a URL
    is immutable by construction). The cache name is stamped at build time by the
-   `stampServiceWorker` plugin in `vite.config.js`. Nothing to remember.
+   `stampServiceWorker` plugin in `vite.config.js` as `<version>-<commit>`, both
+   of which change on every ship. Nothing to remember.
 
 4. **Apostrophes in single-quoted JS strings.** A recurring fatal syntax error in
    the old single-file build. Non-issue now — JSX and a real build step — but it
@@ -510,7 +511,7 @@ was force-pushed. If you ever need the reference implementation and the copy in
 npm install
 npm run dev        # local
 npm run build      # production build
-npm run ship       # bump the counter, commit it, push — the whole ritual
+npm run ship       # bump the version, commit it, push — the whole ritual
 ```
 
 `ship` exists because the obvious `npm run deploy && git push` is a trap on this
@@ -520,29 +521,59 @@ fails to parse the line before running any of it. npm runs its scripts through
 makes it work from PowerShell, cmd and bash alike. `npm run deploy` on its own
 still bumps and commits without pushing.
 
-The Settings footer prints `v2.0.0 · deploy #N · N commits · sha · built date`.
-Always ship through `ship` so the counter stays honest — a plain `git push`
-deploys a build whose footer claims the previous deploy number. The counter has
-to be incremented locally because a Vercel build is a throwaway container with
-nowhere to write it back to. See `../../VANTARCO APP DATABASE/template/README.md`
-for the full mechanics.
+### The version IS the counter
 
-`vercel.json` carries the SPA rewrite and the CSP. **`connect-src 'self'` will
-block any third-party API call** — add the specific origin rather than widening
-it. STACK makes none today.
+Every ship bumps the **minor**: `2.0 → 2.1 → 2.2 … → 2.9 → 2.10 → 2.11`. It
+never rolls into `3.0` on its own — a major is a decision someone makes, not
+something that happens because you shipped ten times.
 
-### The APK is dropped — decided, not pending
+**`2.10` comes after `2.9` and is not `2.1`.** Semver fields are integers, not
+decimals. `scripts/bump-deploy.js` compares them as numbers and never as a
+float; anything that sorts versions must do the same.
 
-The old Play Store artefacts (`../STACK - Google Play package/`) point at the
-GitHub Pages origin and are **dead**. STACK ships as an installed PWA from
-Vercel and nothing else. Do not re-wrap it, do not update `assetlinks.json`, do
-not treat that directory as work-in-progress — the user closed this in Aug 2026.
+The Settings footer prints `v2.1 · N commits · sha · built date`. The patch
+field is dropped when it is `0` (`2.10.0` → `v2.10`), so a real patch release
+would still print in full as `v2.1.3`.
 
-The practical consequence: "install" means Add to Home Screen from the Vercel
-URL, so there is no Play Store update channel and no review lag. A deploy is
-live the moment the service worker picks it up. That is the *reason* `sw.js` is
-network-first for navigations — with no store build to fall back on, a stale
-cached `index.html` would be the only copy of the app on the phone.
+There used to be a separate `deploy #N` counter beside the version. It is gone,
+along with `buildinfo.deploys` and `__DEPLOY_COUNT__` — two numbers that both
+counted deploys meant every reader had to work out which one mattered.
+
+Always ship through `ship`. A plain `git push` deploys a build whose footer
+claims the previous version. The bump has to happen locally because a Vercel
+build is a throwaway container with nowhere to write it back to. See
+`../../VANTARCO APP DATABASE/template/README.md` for the full mechanics — note
+STACK's counter now differs from the template's.
+
+`vercel.json` carries the SPA rewrite and the CSP. **The CSP will block any
+third-party API call** — add the specific origin rather than widening it. It has
+been opened by exactly two entries, both for Drive sync: `connect-src
+https://www.googleapis.com` and `form-action https://accounts.google.com`.
+
+### Not a PWA — decided, not pending
+
+**STACK is a web page on Vercel. It is not installable and there is no app
+container.** As of v2.1 the manifest, the `apple-mobile-web-app-*` tags and
+`public/site.webmanifest` are gone. Do not add them back, do not re-wrap it, and
+do not treat `../STACK - Google Play package/` as work-in-progress — those Play
+Store artefacts point at the dead GitHub Pages origin, and the whole
+install-container idea was closed in Aug 2026.
+
+**The service worker survived, and deleting it will break reminders.** A service
+worker is not an install feature. Notifications go out through
+`navigator.serviceWorker.ready` → `registration.showNotification()`, because the
+plain `new Notification()` constructor is unsupported on Android Chrome and
+throws. `public/sw.js` therefore stays registered even in a plain browser tab.
+Its caching is now a bonus (fast repeat loads, survivable flaky connection)
+rather than the reason it exists.
+
+Two things that also stayed and look like PWA leftovers but are not:
+
+- **`theme-color`** tints Android Chrome's address bar. That is a browser-tab
+  feature; it has nothing to do with installing.
+- **`icon-192.png`** is referenced by the notifications, not by a home screen.
+  (`apple-touch-icon.png` is a genuine leftover, kept only because Safari
+  auto-discovers it for bookmarks whether or not a `<link>` points at it.)
 
 ---
 

@@ -22,11 +22,14 @@ if (LOCK_PINCH_ZOOM) {
   }
 }
 
-/* Service worker: offline shell, and the registration that notifications fire
- * through. Registered from the origin root so its scope covers the whole app —
- * a worker served from /assets/ would control nothing.
+/* Service worker. STACK is no longer an installable PWA, and this is still
+ * here: notifications fire through the REGISTRATION
+ * (`registration.showNotification`), because `new Notification()` throws on
+ * Android Chrome. Losing the worker loses the reminders, tab or no tab.
  *
- * Registered after `load` so it never competes with the first paint. */
+ * Registered from the origin root so its scope covers the whole app — a worker
+ * served from /assets/ would control nothing. Registered after `load` so it
+ * never competes with the first paint. */
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {
