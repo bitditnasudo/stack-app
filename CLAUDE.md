@@ -565,6 +565,7 @@ was force-pushed. If you ever need the reference implementation and the copy in
 npm install
 npm run dev        # local
 npm run build      # production build
+npm run check      # domain assertions + runtime contrast — both gates
 npm run ship       # bump the version, commit it, push — the whole ritual
 ```
 
@@ -633,7 +634,26 @@ Two things that also stayed and look like PWA leftovers but are not:
 
 ## Working on this
 
-- **Verify before you claim.** `node verify.mjs` runs 67 assertions: the day
+- **`npm run check`** runs both gates: `verify.mjs` (domain + engine +
+  migration) and `scripts/contrast.mjs` (WCAG over every runtime colour). Run it
+  before claiming anything.
+- **Runtime colour is NOT covered by the theme's measurements.** `theme.css`
+  records 47 pairings of the theme's own colours; `.mood`, `.cat-chip`,
+  `.week-slot` and `.step-card` colour themselves from user data, and three of
+  them shipped broken in v2.3 because they were eyeballed against one palette
+  entry instead. `scripts/contrast.mjs` exists to stop that: every palette
+  colour, every context. Two rules it encodes —
+  **a gradient has two ends** (`--on-dark-muted` passed at 4.72:1 on one stop
+  and failed at 4.02:1 on the other), and **when the ink IS the colour, a
+  heavier wash costs contrast** (`.mood` at 22% measured 4.49:1; at 14% it is
+  5.26:1).
+- **A component must not encode a backdrop assumption.** `.mood` inks the day's
+  colour onto a wash of itself — 7.56:1 on the page, **1.07:1 on the hero's
+  bright gradient**, i.e. invisible. The fix was an explicit `.mood-on-dark`
+  variant, which makes the backdrop a decision at the call site. Same class of
+  bug as the `--heat-ink` crossover. `--on-dark-veil` LIGHTENS for the same
+  reason: the chip carries near-black ink, so darkening it hides the text.
+- **Verify before you claim.** `node verify.mjs` runs 100 assertions: the day
   classification, the task-id contract, local date keys, Monday-first weeks, the
   no-data-vs-0% distinction, and the routine engine — the day-type union,
   reorder staying inside its block, the three deletion behaviours, the derived

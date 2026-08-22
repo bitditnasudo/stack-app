@@ -92,8 +92,13 @@ export default function Recap() {
                   : day.pct === null ? 'no data'
                   : `${day.done}/${day.total}`}
               </div>
+              {/* Same markup as Today and Overview, dot included — it shipped
+                  without one, which made three call sites of one component
+                  render two different ways. */}
               {day.kind.color
-                ? <span className="mood" style={{ '--mood-color': day.kind.color }}>{day.kind.text}</span>
+                ? <span className="mood" style={{ '--mood-color': day.kind.color }}>
+                    <span className="mood-dot" />{day.kind.text}
+                  </span>
                 : <Tag tone="neutral">{day.kind.text}</Tag>}
             </div>
           ))}

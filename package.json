@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "deploy:bump": "node scripts/bump-deploy.js",
     "deploy": "node scripts/bump-deploy.js --commit",
-    "ship": "npm run deploy && git push"
+    "ship": "npm run deploy && git push",
+    "contrast": "node scripts/contrast.mjs",
+    "check": "node verify.mjs && node scripts/contrast.mjs"
   },
   "dependencies": {
     "date-fns": "^3.6.0",

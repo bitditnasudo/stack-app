@@ -1155,14 +1155,34 @@ button, input, select, textarea { font-family: inherit; }
    The template's colour, used as a wash rather than a fill: it sits under the
    page title, which is --text, and a saturated bar there would fight the
    coloured cards below it for attention. */
+/* The wash is 14%, not the 22% it shipped at. The ink IS the mood colour, so a
+   heavier wash moves the background toward the text: at 22% the worst palette
+   entry (#FF7A5C) measured 4.49:1 and failed. 14% puts the worst case at
+   5.26:1. Measured across all eight palette colours, not one. */
 .mood {
   display: inline-flex; align-items: center; gap: var(--sp-2);
   padding: 6px 13px; border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--mood-color) 22%, transparent);
+  background: color-mix(in srgb, var(--mood-color) 14%, transparent);
   color: var(--mood-color);
   font-size: var(--fs-xs); font-weight: 800; letter-spacing: .04em;
 }
-.mood-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mood-color); flex: none; }
+.mood-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+
+/* ON A SATURATED CARD, the mood colour cannot be shown at all.
+   .mood assumes a dark backdrop — it inks with the mood colour on a wash of
+   itself, which reads at 7.56:1 on the page and COLLAPSES TO 1.07:1 on the
+   hero's rose gradient: coral text on coral-tinted rose, invisible. That was a
+   shipped defect, and its cause was a component encoding a backdrop assumption
+   nothing enforced.
+
+   This variant makes the assumption a choice at the call site. The day's colour
+   is genuinely lost here — it survives on the week rows, the recap and the
+   overview — and the label carries the identity alone at 7.79:1. The dot rides
+   `currentColor` above, so it stays visible instead of becoming a hole. */
+.mood-on-dark {
+  background: var(--on-dark-veil);
+  color: var(--on-dark);
+}
 
 /* ── Week grid, sequence rows, category chips ────────────────────────────────
    Paired with pages/Routine.jsx. --mood-color is set per element in JSX because
@@ -1189,8 +1209,11 @@ button, input, select, textarea { font-family: inherit; }
   background: none; border: 1px dashed var(--border-strong);
   color: var(--muted); font-weight: 600;
 }
+/* --text, not --muted: this sits on a template-coloured wash rather than on the
+   card, and --muted against the lightest palette entry measured 3.97:1. --text
+   is 9.55:1 on the worst of the eight. */
 .week-count {
-  font-size: var(--fs-xs); font-weight: 700; color: var(--muted);
+  font-size: var(--fs-xs); font-weight: 700; color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 .week-shared {
@@ -1221,10 +1244,12 @@ button, input, select, textarea { font-family: inherit; }
 
 /* A category, shown as its own colour. Used as a read-only chip and, with
    .cat-choice, as a picker. */
+/* 14% for the same reason as .mood — the ink is the colour, so a heavier wash
+   eats its own contrast. Kept identical to .mood so the two never drift. */
 .cat-chip, .cat-choice {
   display: inline-flex; align-items: center; gap: var(--sp-2);
   padding: 5px 11px; border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--mood-color) 18%, transparent);
+  background: color-mix(in srgb, var(--mood-color) 14%, transparent);
   color: var(--mood-color);
   font-size: var(--fs-xs); font-weight: 700; white-space: nowrap;
 }

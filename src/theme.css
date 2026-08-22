@@ -151,16 +151,28 @@
      --on-dark-muted  the secondary line inside a hero card. index.css had
                       `rgb(255 255 255 / .78)` hardcoded — the one colour
                       literal left in the kit, and it fails outright on a bright
-                      card. Now a token, which is the house rule anyway.
-                      Measured 4.72:1 on the darkest end of the hero gradient.
-     --on-dark-veil   the fill behind .tag-on-dark, a chip sitting ON a
-                      saturated card. A white veil lightens a bright card and
-                      the chip vanishes; on dark it has to darken instead.
+                      card.
+                      WAS .74, WHICH FAILED. It was measured against the DARK
+                      end of the hero gradient (4.72:1) and never against the
+                      light end, where the same value lands at 4.02:1. At .88 it
+                      measures 5.09:1 across the whole gradient. Measure a
+                      gradient at BOTH stops or you have not measured it.
+     --on-dark-veil   the fill behind a chip sitting ON a saturated card
+                      (.tag-on-dark, .mood-on-dark).
+                      IT LIGHTENS, and the comment here used to claim the
+                      opposite — "a white veil lightens a bright card and the
+                      chip vanishes; on dark it has to darken instead". That was
+                      wrong twice over. The chip carries --on-dark (near-black)
+                      ink, so darkening the chip pushes it TOWARD the ink and
+                      the text disappears: a .14 dark veil measures 4.58:1, and
+                      going darker gets worse — .32 lands at 3.29:1. Lightening
+                      helps both goals at once: 7.79:1 for the ink, and 1.16:1
+                      against the card so the chip still reads as a chip.
 
      Both are candidates to promote into the shared template — they are gaps
      the kit only reveals once someone writes a dark theme for it.           */
-  --on-dark-muted: rgb(26 15 18 / .74);
-  --on-dark-veil:  rgb(26 15 18 / .14);
+  --on-dark-muted: rgb(26 15 18 / .88);
+  --on-dark-veil:  rgb(255 255 255 / .28);
 
   /* Ink for every step of the heatmap ramp.
      The ramp spans a near-black cell (alpha .12) to a vivid rose one (.72), and

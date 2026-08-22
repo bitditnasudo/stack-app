@@ -64,8 +64,13 @@ export default function Today() {
               {done} / {total} done
               {waitMinutes > 0 && <> &middot; {formatWait(waitMinutes)} waiting</>}
             </div>
+            {/* mood-on-dark, not mood: this chip sits on the hero's bright
+                gradient, where the plain variant inks the mood colour onto a
+                wash of itself and measures 1.07:1 — invisible. The day's colour
+                cannot be shown here at all; it survives on the week rows, the
+                recap and the overview. */}
             {kind.color && (
-              <span className="mood" style={{ '--mood-color': kind.color }}>
+              <span className="mood mood-on-dark">
                 <span className="mood-dot" />{kind.text}
               </span>
             )}
