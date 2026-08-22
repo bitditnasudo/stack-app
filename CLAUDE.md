@@ -7,10 +7,14 @@ written for a fresh Claude Code session with no prior context.
 
 ## What this is
 
-**STACK** is a single-user daily protocol tracker: skincare, supplements and
-training, as a checklist that rebuilds itself for whatever kind of day it is.
-It has exactly one user (Arath), runs on his phone as an installed PWA, and has
-no accounts, no server and no network calls.
+**STACK** is a single-user daily protocol tracker: skincare, supplements,
+health and habits, as a checklist that rebuilds itself for whatever kind of day
+it is. It has exactly one user (Arath), runs on his phone as an installed PWA,
+and has no accounts, no server and no network calls.
+
+**The protocol is editable in the app.** Tasks, the named kinds of day they run
+on, the tags they are grouped by and the time blocks they sit in are all user
+data now — see "Domain" below. Adding a supplement is no longer a code change.
 
 **This repo is a rewrite.** The previous version was a single 1803-line
 `index.html` with inline `<style>` and `<script>`, deployed to GitHub Pages and
@@ -47,59 +51,133 @@ lives at `../../VANTARCO APP DATABASE/`. Two documents there are binding:
 
 ### Theme
 
-STACK runs the Vantarco kit on its own **WINE** theme: light, rose page, wine
-brand ramp, Sora + Inter. `src/theme.css` is the *only* file that differs from
-the template in colour, and it differs in values only — every token name and
-every scale (shape, space, type, motion) is the kit's, unchanged. Nothing
-outside that file knows what colour this app is; that is what makes the next
-re-skin a one-file change.
+STACK runs the Vantarco kit on **WINE AFTER DARK**: near-black page, a wine ramp
+lifted to a rose bright enough to carry on it, Sora + Inter. `src/theme.css` is
+still the *only* file that differs from the template in colour, and it still
+differs in values only — every token name and every scale is the kit's.
+
+**The app is dark-only.** There is no light mode and no `prefers-color-scheme`
+switch. The light WINE set it replaced is preserved whole at the bottom of
+`theme.css` as REFERENCE THEME C, so reverting is a comment swap rather than an
+excavation.
 
 ```
---brand      #A31D3F   wine     nav pill, primary button, focus ring, ring value
---brand-soft #C9455F   rosé     light end of the primary gradient
---brand-deep #6E1029   deep     dark end, chip ink, and the shadow tint
---bg → --bg-2  #F8EFF1 → #F3E6E9   rose page, deepening downward
+--brand      #FF4D6D   rose      primary button, focus ring, progress, ring value
+--brand-soft #FF7D93   light     light end of the primary gradient
+--brand-deep #FFB3C0   palest    pill fills, AND the ink on --brand-wash
+--bg → --bg-2  #131011 → #171314   near-black page, lifting downward
 ```
 
-**The one trap in a red-branded app: brand red vs danger red.** They are kept in
-different hue families — brand is a blue-leaning wine (348°), danger a
-vermillion (12°) — *and* at different luminance, 1.87:1 apart, so they stay
-distinct at chip size and to a red-deficient eye. Never substitute one for the
-other, and never add a "red" that is neither.
+**Read a token as a ROLE, not as a colour, or this file looks upside-down.** On
+dark, several tokens invert in lightness and the names stay put — that is the
+whole point of the kit:
 
-Two knock-on adjustments, both measured, both commented in the file:
+- **`--brand-deep` is the LIGHTEST brand step here.** Its job is "the ramp end
+  that carries `--on-brand`, and the ink on `--brand-wash`". On a white page
+  that job wants a dark wine; on a black page it wants a pale rose. Renaming it
+  would break the one rule that makes a component read the same token in every
+  theme.
+- **`--on-dark` is near-black.** Its job is "ink on a saturated or inverted
+  fill", and on this theme those fills are all bright: the tick inside a
+  completed task ring (`--ok`), the toast (`--text` as a background), and the
+  hero card's brand gradient.
 
-- **`--ok` is darkened to `#00875A`.** The completed task-ring is the one place
-  a status colour is a *fill under a white glyph* rather than ink on a wash; the
-  template's `#00A86B` put that tick at 2.6:1. It now measures 4.55:1.
-- **The greys are warm.** A slate grey on a rose page reads as dirty rather than
-  neutral. All three re-measured: `--muted` 6.79:1 on surface, `--muted-2`
-  5.80:1, `--muted-on-bg` 7.18:1 on `--bg` and 6.68:1 on `--bg-2`.
+**Brand red vs danger red, again and harder.** On black *both* have to be bright
+to exist at all, so the luminance gap the light theme leaned on is much harder
+to hold. `--danger` measures **1.43:1** against `--brand` — less than the light
+theme's 1.87:1, and that is the honest number. The shortfall is made up with
+hue: danger is pushed to ~22° (from 12°) against the brand's ~350°. Never
+substitute one for the other, and never add a "red" that is neither.
 
-`--bg-2` doubles as the sheet background, so it is the *deep* end of the page
-gradient, not the light one — a near-white `--bg-2` makes a sheet and the cards
-inside it the same colour.
+Three knock-on changes, all measured, all commented in the file:
 
-If the theme changes again: re-measure the three greys, `--on-brand` on
-`--brand`, every `-ink` on its `-wash`, and white on `--ok`. A tone that passes
-on one page tint routinely fails on another — that is the most repeated bug in
-this family.
+- **`--ok` is a lime `#4ADE80`**, not the light theme's forest `#00875A`, which
+  measures 1.9:1 on this page. It is the one status that appears as a *fill
+  under a glyph*, so it is the one that has to be bright — `--on-dark` on it
+  measures 10.75:1.
+- **Shadows are black, not brand-tinted.** The kit's rule ("brand-tinted, never
+  grey — a grey shadow under a tinted page reads as dirt") assumes a light page.
+  With `--brand-rgb` bright, that same rule paints a pink *glow* under every
+  card. `--shadow-brand` keeps the tint, because that one is a glow on purpose.
+- **The radius scale opened to 28 / 18 / 12** from the kit's 22 / 14 / 10. 28 is
+  a deliberate ceiling: past ~32px a `--radius-sm` button inside a `--radius`
+  card starts to look like it is escaping the corner, and the heat cells turn
+  into circles.
 
-The old app was dark (`#080808` page, `#e8281e` red, Syne + DM Mono). The dark
-surface stayed dropped — STACK sits in the same product family as the other
-Vantarco apps — but the red came back as the brand, tamed into a wine that can
-coexist with `--danger`. If dark should ever return it comes back as a complete
-dark token set in `theme.css` and nowhere else, with all of the above
-re-measured, because these light values fail on dark.
+**Three tokens were added, and they are gaps the kit only reveals once someone
+writes a dark theme for it.** All three are candidates to promote into the
+shared template:
+
+| Token | Why it had to exist |
+|---|---|
+| `--on-dark-muted` | `index.css` hardcoded `rgb(255 255 255 / .78)` for the hero card's secondary line — the last colour literal in the kit, and invisible as a bug until a theme made that card bright |
+| `--on-dark-veil` | the fill behind `.tag-on-dark`. A white veil on a *bright* card leaves the chip invisible; which direction it goes is the theme's call, not `index.css`'s |
+| `--heat-ink` | the heatmap ramp used to switch inks halfway up (`--brand-deep` → `--on-brand`). That crossover is theme-specific and lands on a different step on dark, so the ramp went illegible in the middle. The top alpha also drops .80 → .72, which is what lets one ink clear AA across all five steps |
+
+**Every number above is measured.** All 47 pairings the app actually renders
+were checked with the WCAG formula against *these* surfaces, including the
+alpha-composited ones (a heat cell is brand at an alpha over `--surface`, so the
+ratio depends on both). If the theme changes again, re-measure all of it — a
+tone that passes on a rose page fails on a black one, which is the most repeated
+bug in this family.
+
+`#131011` also appears in `index.html` (`theme-color`) and
+`public/site.webmanifest` (`background_color`, `theme_color`). Keep all three in
+step or the status bar flashes a different colour on launch.
 
 ---
 
 ## Domain — what the app actually models
 
-All of it lives in **`src/lib/protocol.js`**. That file is the domain; every
-screen is presentation over what `buildTasks()` returns.
+**The protocol is DATA the user edits, not code.** This is the biggest change
+since the rewrite. There are two files and the split matters:
 
-### The week
+- **`src/lib/routine.js`** — the schema and the engine. Every function that
+  reads or rewrites a routine, all pure. Read its header before touching the
+  model; it explains the two rules below in full.
+- **`src/lib/protocol.js`** — the *seed* only. What a fresh install starts with,
+  and what "Reset routine" restores. Editing it does not touch a routine already
+  saved on a device.
+
+### The routine document
+
+```js
+routine = {
+  version: 1,
+  dayTypes: [{ id, name, tone, days:[jsDay] }],   // Gym, Mobility, Active, Rest, Every day
+  tags:     [{ id, label, tone }],                // Skincare, Supplements, Health, Habits
+  blocks:   [{ id, label, start, end, remind }],  // headings AND the reminder times
+  tasks:    [{ id, name, detail, block, tags[], dayTypes[], days[], target, warn, wait }],
+}
+```
+
+Stored in the same localStorage blob as the day logs (`state.routine`, stamped
+`routineUpdatedAt`), so one export backs up the checklist and the history
+together.
+
+### Two rules that are load-bearing
+
+**1. Day types OVERLAP. They are not an enum.** A weekday belongs to as many as
+match it. This is the old `active` / `workout` flag pair generalised, and it
+exists for one reason:
+
+```
+Sunday is ACTIVE and has NO WORKOUT.
+```
+
+Collapsing day types into a single "what kind of day is it" field makes Sunday
+unrepresentable. The old code carried a comment warning about this; the schema
+now makes it structurally impossible instead. A task's days are the **union** of
+its day types' days plus its own explicit `days` list.
+
+**2. Task ids are still a storage contract.** Completion persists as
+`{ [taskId]: true }` per day, going back to the GitHub Pages build. The seed
+reproduces the original fifteen ids exactly, and `verify.mjs` asserts the set.
+New tasks get minted ids from `newId()`. **Never rename or reuse one.** Deleting
+a task deliberately leaves its past ticks alone — a day log stores its own
+`total`, so old percentages stay correct.
+
+### The week the seed encodes
 
 | Day | What happens |
 |---|---|
@@ -108,23 +186,33 @@ screen is presentation over what `buildTasks()` returns.
 | Sun | Active skincare. **No workout, no supplements beyond Tadalafil.** **12 tasks** |
 | Tue / Thu | Rest. Barrier-only skincare, flexible supplement timing. **8 tasks** |
 
-### The two flags, and the bug that lives between them
+### Derived, not hand-maintained
 
-```
-active   → retinoid / vitamin C / minoxidil days   Sun Mon Wed Fri Sat
-workout  → a gym or mobility session                   Mon Wed Fri Sat
-```
+- **The day badge** is the first day type matching today, so the ORDER of
+  `dayTypes` is priority order (Gym above Active is why a Monday reads GYM). A
+  type covering all seven days is never a badge — it says nothing about *this*
+  day.
+- **Reminders** come from `notifScheduleFor()`: each block fires `remind`
+  minutes before `start`, on exactly the days it has tasks, reading out those
+  tasks. The old build kept a second literal `NOTIF_SCHEDULE` beside the
+  protocol, so adding a step meant remembering to edit both — and forgetting was
+  invisible until a reminder announced a stale list. **Do not reintroduce a
+  hand-kept reminder list.**
+- **The Overview split** is one bar per tag with a task today. It used to be a
+  hardcoded supplements-vs-skincare pair.
 
-**Sunday is active but has no workout.** These are independent. Never derive one
-from the other, never collapse them into one "is it a training day" boolean.
-This is the single most likely thing to get quietly wrong.
+### Things a routine edit must not break
 
-### Task IDs are a storage contract
+`normaliseRoutine()` is the one place a routine is made sound, and everything
+downstream assumes it ran. It runs on **every load**, not just on import,
+because the blob is hand-editable in devtools and survives across versions.
+Deleting things is where the sharp edges are, and all three are asserted:
 
-Completion persists as `{ [taskId]: true }` per day. Renaming an id silently
-orphans history — including the history imported from the old GitHub Pages
-build. **Add ids freely; never rename or reuse one.** The 15 live ids are
-asserted in `verify.mjs`.
+- deleting a **day type** strips it from every task that named it (the task is
+  then flagged *unscheduled* in the editor, not silently run every day);
+- deleting a **block** re-homes its tasks into the first surviving block rather
+  than deleting them, and the last block cannot be deleted;
+- deleting a **tag** strips it from tasks.
 
 ### Domain facts worth not re-deriving
 
@@ -135,42 +223,46 @@ asserted in `verify.mjs`.
   post-workout for convenience, not physiology.
 - **Whey** is a dietary tool for hitting 1.6–2.2 g/kg, not a mandatory ritual.
 - **Retinol and Vitamin C are never layered.** Vitamin C is morning-only,
-  retinol is evening-only, and the evening HA carries a 10–15 min bone-dry wait
-  before retinol specifically because damp skin increases irritation.
+  retinol is evening-only. The 10–15 min bone-dry wait before retinol now lives
+  **on the retinol task**, not on the evening HA: a task's fields no longer
+  branch on the day, and hung off the HA the instruction appeared on rest nights
+  where nothing follows it.
 - Gym is 19:30, 60–90 min. Bed at 23:00. Every clock target derives from those.
 - Training is **spine-safe**: no free-weight deadlifts, no barbell rows, no
   high-shear lumbar work. Relevant if a workout logger is ever added.
 - Planned addition: **NutraBio Growth Peptides** — post-workout on training
-  days, consistent time on rest days. Not yet in `buildTasks()`.
-
----
+  days, consistent time on rest days. **This is now a job for the in-app editor,
+  not a code change.**
 
 ## Architecture
 
 ```
 src/
-  theme.css              tokens — UNMODIFIED from the template
-  index.css              the kit + a marked "STACK ADDITIONS" block at the end
+  theme.css              tokens — the WINE AFTER DARK set + 3 reference themes
+  index.css              the kit + marked "STACK ADDITIONS" blocks at the end
   app.config.jsx         name, STORAGE_KEY, the 4 nav items, brand mark, build stamp
   App.jsx                provider → router → shell → routes
   main.jsx               entry; service worker registration; LOCK_PINCH_ZOOM=false
   components/
     AppShell.jsx         nav (pill bar ⇄ sidebar) + PageHeader — template, unchanged
-    UI.jsx               the kit + STACK additions: MetaPill TaskRow Ring Heatmap
+    UI.jsx               the kit + STACK additions: TaskRow Ring Heatmap, plus
+                         DayPicker TonePicker EditRow for the editor
     Signature.jsx        footer mark — template, unchanged
   lib/
-    protocol.js          ★ THE DOMAIN — days, tasks, blocks, notification schedule
+    routine.js           ★ THE ENGINE — schema, scheduling, reminders, validation
+    protocol.js          the SEED routine only (what a fresh install starts with)
     dates.js             local date keys, Monday-first weeks. Never UTC
     weeks.js             day logs → a week + its stats
     store.jsx            state, persistence, legacy import, backup, useTodayKey
-    notifications.js     permission + in-page scheduling
+    notifications.js     permission + in-page scheduling (schedule is passed IN)
     useToday.js          the one derivation of "today's list and today's score"
   pages/
     Today.jsx            the checklist
-    Overview.jsx         ring, supplements vs skincare split, this week
+    Overview.jsx         ring, by-tag split, this week
     Recap.jsx            any week, navigable backwards
-    Settings.jsx         reminders, backup/restore, erase, build stamp
-verify.mjs               domain assertions — `node verify.mjs`
+    Routine.jsx          ★ the editor — Tasks / Days / Tags / Blocks
+    Settings.jsx         routine link, reminders, backup/restore, erase, build stamp
+verify.mjs               domain + engine assertions — `node verify.mjs`
 ```
 
 ### Navigation is four tabs, and four is the ceiling
@@ -181,13 +273,22 @@ Five would overflow. The old app's separate "Notify" page was a permission
 button plus a read-only schedule — settings content wearing a tab — so it was
 folded into Settings.
 
-There is **no FAB**. STACK has no create verb; its records are generated from
-the protocol, not entered by hand.
+There is **no FAB** — but the reason changed. STACK *gained* a create verb when
+the protocol became editable; it just belongs to one screen rather than to the
+shell. A global "+" on the checklist would sit beside fifteen things that are
+ticked, not created, and its meaning would change from tab to tab. `Routine`
+carries its own add buttons, one per section, where what is being added is
+unambiguous.
+
+**`/routine` is a sub-page, not a fifth tab** — the bar is full at four. It is
+reached from the sliders icon on Today (where you notice a step is missing) and
+from the top of Settings (where you go looking for it).
 
 ### State model
 
-One localStorage key, `stack:v1`. Day logs are stored as the template's `items`
-array with `id` = the local date key:
+One localStorage key, `stack:v1`, holding **both** the day logs and the routine.
+Day logs are stored as the template's `items` array with `id` = the local date
+key:
 
 ```js
 { id: '2026-08-10', checked: { taskId: true }, total: 15, updatedAt, createdAt }
@@ -204,6 +305,22 @@ correct merge for this app, and cloud sync later needs only a transport.
 - `pct === null` means **no data** (day never opened). That is not 0% (opened,
   nothing ticked). The old app conflated them, so every pre-install day showed
   as a failure and the weekly average was meaningless.
+
+Alongside `items` sit `routine` and `routineUpdatedAt`. The routine is a single
+DOCUMENT, not a set, so it cannot use the union merge — two edited checklists
+have no meaningful union and half-applying one produces a list neither device
+ever had. It resolves by **last write wins**, the same rule `settings` and
+`profile` already used, in both `mergeStates` and backup import. `importBackup`
+returns `{ days, routine }` so the UI can say which happened: gaining a few days
+of history and having your whole checklist replaced are very different events
+and neither should be silent.
+
+The routine is seeded in `loadLocal()`, not in an effect — the first render
+already needs a checklist to build, and an effect would mean one frame of "no
+protocol" plus a null branch in every consumer that is never exercised. A device
+upgrading from the pre-editor build has no `routine` key, falls through to the
+seed, and sees exactly the protocol it was already showing: same ids, same days,
+history still lines up.
 
 ---
 
@@ -254,6 +371,109 @@ reliability the code doesn't have.
 Real fixes, neither in scope: the Notification Triggers API (Chromium-only,
 behind a flag) or a push service with a server. Do not claim this is fixed
 without one of them.
+
+---
+
+## Drive sync — where the user data lives
+
+**Ported from the Plant Tracker**, deliberately: `src/lib/googleDrive.js` is the
+same OAuth implicit-redirect flow, the same shared Vantarco OAuth client, and
+the same one-JSON-file-holds-everything shape as
+`PLANT TRACKER/src/lib/googleDrive.js`. If you are changing one, look at the
+other first.
+
+Everything the user owns — the routine and every logged day — goes up as a
+single `stack-sync.json` in a Drive folder named **STACK APP**.
+
+```
+state  ──►  { savedAt, version, state }  ──►  stack-sync.json
+```
+
+### Why the merge needed no new code
+
+`mergeStates` was already conflict-safe: day logs union by date key with
+newest-`updatedAt`-wins, tombstones survive, and the routine resolves
+last-write-wins. That was the entire reason day logs are stored as the
+template's `items` array keyed by date. The sync is transport and nothing else.
+
+**Devices MERGE, they do not overwrite.** A phone offline for a week can add the
+days it logged but can never delete days it never saw.
+
+### THE SCOPE TRAP — read this before debugging "it made its own folder"
+
+The app asks for **`drive.file`**, the narrowest scope that can write to Drive:
+per-file access to files *this app created*. It cannot read anything else in the
+Drive it is signed into, which is the right default for a client-side app whose
+token sits in `localStorage`.
+
+The catch: **a folder the user made by hand in the Drive UI was not created by
+this app**, so `drive.file` may not be able to open it — even with the correct
+folder id. Google's sanctioned way to hand a pre-existing folder to a
+`drive.file` app is the **Picker**.
+
+`resolveFolder()` therefore does this, and it is not a workaround being hidden:
+
+1. try `VITE_GDRIVE_FOLDER_ID`;
+2. on 404/403, find-or-create a folder named `STACK APP` that the app owns;
+3. return `{ id, name, pinned }` — and **Settings prints which folder it is
+   actually writing to, with a link.** `pinned: false` means the configured
+   folder could not be opened. Silently writing somewhere other than where the
+   user pointed it would be worse than failing.
+
+If the fallback fires and the pinned folder is genuinely wanted, there are
+exactly three options, in order of how much they cost:
+
+| Option | Cost |
+|---|---|
+| Use the folder STACK created and move on | none — it is the Plant Tracker's own behaviour |
+| Add the Google Picker | keeps `drive.file`; needs Google's script, so `script-src` in the CSP has to open up |
+| Switch `SCOPES` to `https://www.googleapis.com/auth/drive` | one line, works with the pinned id — but grants read/write over the **entire** Drive to a token in `localStorage` |
+
+The third is a real escalation and should be a deliberate decision, not a
+default. It is why the constant is one line with a comment above it.
+
+### Setup that is NOT in the repo
+
+`.env.local` is gitignored, and Vite embeds `VITE_*` into the bundle (fine —
+neither value is a secret):
+
+```
+VITE_GOOGLE_CLIENT_ID=…   # shared with BUDGET APP and PLANT TRACKER
+VITE_GDRIVE_FOLDER_ID=…   # the "STACK APP" folder
+```
+
+**The OAuth client's authorised redirect URIs must include this app's origins**,
+or sign-in dies with `redirect_uri_mismatch` before it ever reaches the app:
+
+```
+http://localhost:5178/auth/callback
+https://stack-app-flame-phi.vercel.app/auth/callback
+```
+
+`vercel.json`'s CSP was opened by exactly two entries and no more —
+`connect-src https://www.googleapis.com` for the API, and `form-action
+https://accounts.google.com` for the sign-in redirect.
+
+### Wiring notes worth not rediscovering
+
+- **`/auth/callback` is routed OUTSIDE `AppShell`.** It lives for a few hundred
+  milliseconds; flashing the nav bar behind it makes it look like a destination.
+  It also clears the URL fragment before navigating — a token in the address bar
+  ends up in screenshots and in the back-forward cache.
+- **`applying` guards the pull.** Writing merged remote data into state marks the
+  device dirty, which pushes straight back — two devices ping-ponging forever.
+  The counter suppresses the dirty flag for exactly the renders a pull causes.
+- **The dirty effect has its own first-run latch (`dirtyFirstRun`), not
+  `hydrated`.** Effects run in declaration order and the save effect flips
+  `hydrated` on the same first pass, so the dirty effect read `true` on mount
+  and every cold start rewrote the Drive file on open.
+- **Sync meta (`stack:sync`) is deliberately outside the synced blob.** It is
+  this device's relationship to the file; syncing it would have each device
+  overwrite the other's bookkeeping.
+- **Disconnect does not delete the file.** It means "stop talking to Drive on
+  this device", not "throw away the backup".
+- Push is debounced 4s, so ticking off a morning routine is one upload, not
+  eight. Pull runs on startup and on every return to the foreground.
 
 ---
 
@@ -328,9 +548,17 @@ cached `index.html` would be the only copy of the app on the phone.
 
 ## Working on this
 
-- **Verify before you claim.** `node verify.mjs` asserts the day
-  classification, the task-id contract, local date keys, Monday-first weeks and
-  the no-data-vs-0% distinction. Extend it when you add domain rules.
+- **Verify before you claim.** `node verify.mjs` runs 67 assertions: the day
+  classification, the task-id contract, local date keys, Monday-first weeks, the
+  no-data-vs-0% distinction, and the routine engine — the day-type union,
+  reorder staying inside its block, the three deletion behaviours, the derived
+  reminder times, and `normaliseRoutine` surviving a garbage backup. Extend it
+  when you add domain rules.
+- **Time formatting is asserted through `Intl`, never against a literal "AM".**
+  The first `formatTimeRange` matched `/AM|PM/` and silently did nothing on the
+  dev machine, whose locale renders `6:30 a.m.` — every block heading read
+  "6:30 a.m. – 7:00 a.m.". It now asks `formatToParts` which characters are the
+  day period, which also means a 24-hour locale is left alone.
 - **`npm run build` must be clean.** It was at the time of writing.
 - Check 375px and 1280px: the nav switches pill ⇄ sidebar, sheets centre and
   lock scroll, nothing overflows horizontally, tap targets stay ≥44px.
@@ -343,3 +571,11 @@ cached `index.html` would be the only copy of the app on the phone.
 Nutrition tracker, workout logger, supplement inventory. All would be separate
 Vantarco apps rather than tabs here — five tabs is over the kit's limit, and
 these are different jobs.
+
+Now that the routine is data, two things get cheaper and are worth knowing about
+before someone rebuilds them by hand:
+
+- **Sync** needs only a transport. `mergeStates` already resolves day logs by
+  union and the routine by last-write-wins.
+- **Sharing or templating a routine** is an export of `state.routine` — the
+  importer already accepts and validates one.

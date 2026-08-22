@@ -7,7 +7,7 @@
    ========================================================================== */
 
 import { useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
+import { X, ChevronUp, ChevronDown, Trash2 } from 'lucide-react'
 
 /* ── Surfaces ────────────────────────────────────────────────────────────── */
 
@@ -333,4 +333,98 @@ function heatLevel(d) {
   if (d.pct >= 15)     return 'heat-2'
   if (d.pct > 0)       return 'heat-1'
   return 'heat-none'
+}
+
+/* ============================================================================
+   ROUTINE EDITOR ADDITIONS
+   ============================================================================
+   Added when the protocol became user-editable. These three are the whole
+   vocabulary of that editor, and all three follow the same rule as the block
+   above: no inline styles, every value a token, so a theme swap re-skins them.
+
+   · <DayPicker>  — pick weekdays. Monday-first, like every other week in STACK.
+   · <TonePicker> — pick a SEMANTIC tone, never a colour. The kit's swatch grid
+                    is for literal colours (Budget's account colours); this
+                    picks from --ok/--warn/--brand/…, which is what keeps a
+                    user-named tag inside the design system.
+   · <EditRow>    — a list row that opens an editor, with reorder and delete
+                    beside it. Deliberately NOT a <button> wrapping buttons:
+                    nested interactive elements are invalid HTML, and browsers
+                    resolve the click ambiguity differently.
+   ========================================================================== */
+
+/** Monday-first weekday toggles. `value` is an array of JS day indices. */
+export function DayPicker({ value = [], onChange, labelledBy }) {
+  const toggle = d => onChange(value.includes(d) ? value.filter(x => x !== d) : [...value, d].sort())
+  return (
+    <div className="day-picker" role="group" aria-labelledby={labelledBy}>
+      {DAY_PICK_ORDER.map(d => (
+        <button
+          key={d}
+          type="button"
+          className={`day-pick${value.includes(d) ? ' is-active' : ''}`}
+          aria-pressed={value.includes(d)}
+          /* The visible label is a single letter and three of them repeat
+             (S,T,T,S), so the accessible name has to be the full day or a
+             screen reader announces four ambiguous buttons. */
+          aria-label={DAY_PICK_LABELS[d]}
+          onClick={() => toggle(d)}
+        >
+          {DAY_PICK_SHORT[d]}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const DAY_PICK_ORDER  = [1, 2, 3, 4, 5, 6, 0]
+const DAY_PICK_SHORT  = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+const DAY_PICK_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+/** Semantic tone picker — the tones are the kit's, so the names are too. */
+export function TonePicker({ value, onChange, tones = ['brand', 'info', 'ok', 'warn', 'danger', 'neutral'] }) {
+  return (
+    <div className="tone-picker" role="group">
+      {tones.map(t => (
+        <button
+          key={t}
+          type="button"
+          className={`tone-swatch tag-${t}${t === value ? ' is-selected' : ''}`}
+          aria-pressed={t === value}
+          aria-label={t}
+          onClick={() => onChange(t)}
+        >
+          {t}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * An editable list row: tap the body to edit, with reorder and delete alongside.
+ *
+ * `onUp`/`onDown` are omitted rather than disabled at the ends of a list — a
+ * permanently dead control on the first row is noise, and the arrows are small
+ * enough that "greyed out" and "unavailable" look identical at a glance.
+ */
+export function EditRow({ title, sub, meta, warn, onEdit, onUp, onDown, onDelete }) {
+  return (
+    <div className={`edit-row${warn ? ' is-warn' : ''}`}>
+      <button type="button" className="edit-row-main" onClick={onEdit}>
+        <span className="edit-row-title">{title}</span>
+        {sub && <span className="edit-row-sub">{sub}</span>}
+        {meta && <span className="edit-row-meta">{meta}</span>}
+      </button>
+      <div className="edit-row-actions">
+        {onUp   && <button className="icon-btn icon-btn-sm" aria-label={`Move ${title} up`}   onClick={onUp}><ChevronUp size={16} /></button>}
+        {onDown && <button className="icon-btn icon-btn-sm" aria-label={`Move ${title} down`} onClick={onDown}><ChevronDown size={16} /></button>}
+        {onDelete && (
+          <button className="icon-btn icon-btn-sm icon-btn-danger" aria-label={`Delete ${title}`} onClick={onDelete}>
+            <Trash2 size={16} />
+          </button>
+        )}
+      </div>
+    </div>
+  )
 }

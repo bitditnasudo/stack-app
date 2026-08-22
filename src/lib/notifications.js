@@ -5,17 +5,20 @@
    *stated in the UI*, which it wasn't before.
 
    How it works: on load (and whenever the tab becomes visible) we arm a
-   setTimeout for every entry in NOTIF_SCHEDULE that is due later today, then
-   hand the firing to the service worker registration so the notification
-   survives the tab being backgrounded.
+   setTimeout for every entry in the schedule that is due later today, then hand
+   the firing to the service worker registration so the notification survives
+   the tab being backgrounded.
+
+   The schedule is PASSED IN, not imported. It is derived from the user's
+   routine by `notifScheduleFor()` — blocks and their tasks can change at any
+   moment, and a module-level import would pin this to whatever the routine
+   looked like at load. Every caller re-derives and re-arms.
 
    What it cannot do: fire when the app has been closed or evicted from memory.
    That needs either the Notification Triggers API (Chromium-only, still behind
    a flag) or a push service with a server. Neither is in scope, so the Settings
    page says so rather than implying reliability the code doesn't have.
    ========================================================================== */
-
-import { NOTIF_SCHEDULE } from './protocol.js'
 
 let timers = []
 
@@ -33,19 +36,22 @@ export function clearScheduled() {
 }
 
 /**
- * Arm today's remaining reminders. Idempotent — safe to call on every focus,
- * which is what keeps it correct after the device wakes from sleep.
+ * Arm today's remaining reminders from `schedule` (see `notifScheduleFor`).
+ * Idempotent — safe to call on every focus, which is what keeps it correct
+ * after the device wakes from sleep, and what makes re-arming after a routine
+ * edit a matter of simply calling it again.
+ *
  * Returns the entries it actually armed, so the UI can show what's pending.
  */
-export function scheduleToday() {
+export function scheduleToday(schedule = []) {
+  clearScheduled()
   if (notificationPermission() !== 'granted') return []
 
-  clearScheduled()
   const now = new Date()
   const today = now.getDay()
   const armed = []
 
-  for (const n of NOTIF_SCHEDULE) {
+  for (const n of schedule) {
     if (!n.days.includes(today)) continue
 
     const fireAt = new Date()
@@ -76,10 +82,10 @@ export function scheduleToday() {
   return armed
 }
 
-export async function requestPermission() {
+export async function requestPermission(schedule = []) {
   if (!supportsNotifications()) return 'unsupported'
   const perm = await Notification.requestPermission()
-  if (perm === 'granted') scheduleToday()
+  if (perm === 'granted') scheduleToday(schedule)
   return perm
 }
 
@@ -88,9 +94,4 @@ export function formatFireTime(n) {
   const d = new Date()
   d.setHours(n.hour, n.min, 0, 0)
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-}
-
-/** Which entries apply to a given JS day index. */
-export function scheduleForDay(jsDay) {
-  return NOTIF_SCHEDULE.filter(n => n.days.includes(jsDay))
 }

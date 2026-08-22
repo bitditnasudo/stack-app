@@ -5,193 +5,265 @@
    colour, radius, size or shadow, so re-skinning an app means editing this file
    and nothing else.
 
-   Two reference themes are kept at the bottom of the file (Budget = purple,
-   Plant = green). Uncomment one, or write a third — the shape is the contract.
+   STACK runs WINE AFTER DARK: a near-black page, a wine ramp lifted to a rose
+   bright enough to carry on it, and the kit's structure untouched. Token names,
+   scales and rules are the template's; only values differ. That is the seam.
 
-   STACK is that third one: WINE. Everything structural below — the token names,
-   the scales, the shape/space/type/motion values — is the template's, untouched.
-   Only the colour values differ, which is exactly the seam the kit is built on.
+   ── This file was light. What changed, and why it is only this file ──────────
+   STACK shipped light (rose page, deep wine ink). It is now dark-only. The
+   kit's own instruction for that case was: "if dark should ever return it comes
+   back as a complete dark token set in theme.css and nowhere else, with all of
+   the above re-measured, because these light values fail on dark." That is
+   exactly what this is. The retired light set is preserved at the bottom of the
+   file as REFERENCE THEME C — nothing was lost, and switching back is a
+   comment swap.
 
-   Why wine: the old single-file build was dark with a hot `#e8281e` red. That
-   red is the one thing about the old look worth carrying, but a hot red at full
-   saturation cannot be a brand colour in this kit — it collides with `--danger`,
-   which has to stay legible as *alarm*. So the brand ramp is a deep wine that
-   reads red at a glance and never at the same luminance as danger, and danger
-   itself is pushed towards vermillion. Measured separation is noted inline.
+   ── THE ONE THING THAT SURPRISES PEOPLE HERE ────────────────────────────────
+   ON DARK, SEVERAL TOKENS INVERT IN LIGHTNESS. `--brand-deep` is the LIGHTEST
+   step of the brand ramp here, and `--on-dark` is nearly black.
 
-   Every contrast number in the comments below was re-measured with the WCAG
-   formula against *these* surfaces. Do not copy the template's numbers forward
-   after a colour change — a tone that passes on a lilac page can fail on a
-   rose one.
+   That is not a mistake and the names are not wrong. Every token in this kit is
+   named for its JOB, not its literal lightness:
+
+     --brand-deep  "the end of the ramp that carries --on-brand, and the ink on
+                    --brand-wash".  On a white page that job wants a dark wine.
+                    On a black page the same job wants a pale rose. Renaming it
+                    would break the one rule that makes the kit work — that a
+                    component reads the same token in every theme.
+
+     --on-dark     "the ink that goes on a saturated or inverted fill". On a
+                    light theme those fills are dark, so it was white. On a dark
+                    theme the fills are BRIGHT (a lime --ok, a near-white toast,
+                    a rose hero card), so it is near-black.
+
+   Read a token as a role and it stays consistent. Read it as a colour and this
+   file looks upside-down.
+
+   ── EVERY NUMBER BELOW IS MEASURED ──────────────────────────────────────────
+   All 47 pairings this theme actually renders were checked with the WCAG
+   formula against THESE surfaces, including the alpha-composited ones (the
+   heatmap ramp is brand at an alpha over --surface, so the ratio depends on
+   both). Do not carry a number forward from another theme — a tone that passes
+   on a rose page fails on a black one, which is the single most repeated bug
+   in this family.
    ========================================================================== */
 
 :root {
+  /* Tells the browser this is a dark UI. Without it the native controls render
+     light: the <input type="time"> picker in the routine editor comes up as a
+     white panel, form autofill paints a white box over a dark field, and the
+     scrollbar gutters flash white. It is a rendering mode, not a colour, which
+     is why it can live in the theme file and nowhere else. */
+  color-scheme: dark;
+
   /* ── Brand ramp ────────────────────────────────────────────────────────────
-     The five brand steps every component reaches for. `--brand` is the one that
-     appears most (active nav pill, primary button, focus ring); `--brand-soft`
-     and `--brand-deep` are the two ends of the primary gradient; `--brand-wash`
-     and `--brand-line` are the tinted background / hairline pair used by chips,
-     selected states and soft cards.
+     The wine survives, lifted. `#A31D3F` on near-black measures 1.9:1 — it
+     disappears — so the ramp is rotated up into a rose that still reads as the
+     same family. `--brand` is what appears most (primary button, focus ring,
+     progress fill, ring value); `--brand-deep` is the ramp end that carries ink
+     ON it (nav pill, active chip, active segment, active weekday) AND is itself
+     the ink on `--brand-wash`, which is why it is the LIGHT end here — see the
+     note at the top of the file.
 
      Measured on this theme:
-       #FFF on --brand        7.49:1  → --on-brand is safe on primary buttons
-       #FFF on --brand-deep  11.87:1
-       --brand      on --bg   6.63:1  → legal for the small brand-coloured text
-                                        that sits on the page (heat labels)
-       --brand-deep on --brand-wash  10.31:1  → chip text on a brand chip     */
-  --brand:        #A31D3F;  /* wine — nav pill, primary button, focus ring     */
-  --brand-soft:   #C9455F;  /* rosé — light end of the primary gradient        */
-  --brand-deep:   #6E1029;  /* deep wine — dark end, and chip/pill ink         */
-  --brand-wash:   #FBEBEF;
-  --brand-line:   #EFC3CE;
-  --on-brand:     #FFFFFF;
+       --on-brand  on --brand         5.68:1   primary button label
+       --on-brand  on --brand-deep   10.83:1   nav pill, chips, segments
+       --on-brand  on --brand-soft    7.48:1   the light end of the FAB gradient
+       --brand-deep on --brand-wash   9.08:1   tag-brand, btn-soft
+       --brand-deep on --surface     10.00:1   idle chip label
+       --brand      on --bg           5.89:1   heat labels, focus ring
+       --brand      on --surface      5.24:1                                  */
+  --brand:        #FF4D6D;  /* rose — primary button, focus ring, progress     */
+  --brand-soft:   #FF7D93;  /* light end of the primary gradient               */
+  --brand-deep:   #FFB3C0;  /* palest step — pill fills, and ink on the wash   */
+  --brand-wash:   #3A1C25;
+  --brand-line:   #5A2A36;
+  --on-brand:     #2A0A12;  /* near-black wine — ink ON the ramp               */
 
-  /* Brand as a raw RGB triple, so shadows can be tinted with an alpha of their
-     own: rgb(var(--brand-rgb) / .14). Keep it in sync with --brand-deep. */
-  --brand-rgb:    110 16 41;
+  /* Brand as a raw RGB triple. Two consumers, and they pull in opposite
+     directions on a dark theme:
+
+       · the heatmap ramp — rgb(var(--brand-rgb) / .12 … .72) over --surface.
+         Needs the BRIGHT brand, or every cell composites darker than the card
+         and the ramp runs backwards.
+       · shadows — which must not be tinted with a bright colour on a dark page,
+         because a light-tinted shadow is a glow.
+
+     So this tracks --brand (bright), and the shadow tokens below opt out and
+     use black directly. On the light theme both wanted the same dark value and
+     the conflict never surfaced. */
+  --brand-rgb:    255 77 109;
 
   /* ── Surfaces ──────────────────────────────────────────────────────────────
-     --bg is the page. --bg-2 is the far end of the page gradient; set it equal
-     to --bg for a flat page (Budget) or lighter for a wash (Plant).
-     --surface-blur is 0 for opaque cards and ~6px for glass cards — it only has
-     an effect when --surface is translucent.
+     Near-black page, cards lifted off it, sheets between the two.
 
-     STACK runs a gradient page — rose, *deepening* toward the bottom — with
-     opaque cards. Glass was rejected: this app's densest screen is a list of 15
-     stacked rows, and a blurred surface behind fifteen hairlines turns to mush
-     on a phone.
+     The gradient still runs --bg → --bg-2 down the page, and --bg-2 is still
+     the sheet background — but on dark it goes LIGHTER downward, the reverse of
+     the light theme. The reason is the same one stated there: --bg-2 has to
+     read as a distinct layer behind the cards inside a sheet. On light that
+     meant tinting it down away from white cards; on dark it means lifting it up
+     toward them, and --surface stays a step above it again (1.09:1, plus a
+     hairline).
 
-     The gradient runs light→dark, not dark→light, for a non-decorative reason:
-     --bg-2 is also the sheet background. A sheet has white cards inside it, so
-     --bg-2 has to stay tinted enough to sit behind them — at 1.21:1 against
-     --surface the card edge is still visible. Flipping the gradient so --bg-2
-     was the near-white end left sheets and cards the same colour.            */
-  --bg:            #F8EFF1;
-  --bg-2:          #F3E6E9;
-  --surface:       #FFFFFF;
-  --surface-2:     #FCF5F6;
+     Opaque, --surface-blur: 0. Glass was rejected on the light theme because
+     the densest screen is fifteen stacked rows; on dark a blurred surface also
+     smears the page gradient through every card edge.
+
+     Measured: --surface vs --bg 1.12:1 · --surface vs --bg-2 1.09:1 ·
+     --border on --surface 1.20:1 · --border-strong on --surface 2.05:1, which
+     is what keeps the un-ticked task ring visible as a control.             */
+  --bg:            #131011;
+  --bg-2:          #171314;
+  --surface:       #201C1E;
+  --surface-2:     #282324;
   --surface-blur:  0px;
-  --border:        #EEDDE1;
-  --border-strong: #DBBFC6;
+  --border:        #302A2C;
+  --border-strong: #574C50;
 
   /* ── Text ──────────────────────────────────────────────────────────────────
-     --muted is verified AA on --surface; --muted-on-bg is verified AA on --bg,
-     which is a different (usually tinted) backdrop. Small text that sits
-     directly on the page rather than in a card must use --muted-on-bg — both
-     source apps hit this bug and patched it after the fact.                  */
-  /* Three greys, and which surface each is legal on. All measured with the WCAG
-     formula against this theme's own --surface and --bg:
+     Three greys and the surface each is legal on, all re-measured here:
 
-       --muted        #6B5560   6.79:1 on surface   6.02:1 on bg  → cards
-       --muted-2      #6F6268   5.80:1 on surface   4.78:1 on bg-2 → cards
-       --muted-on-bg  #5F4A53   8.10:1 on surface   7.18:1 on bg  → anywhere
+       --muted        #A79A9E   6.23:1 on surface   6.99:1 on bg   → cards
+       --muted-2      #988C90   5.21:1 on surface   5.69:1 on bg-2 → cards
+       --muted-on-bg  #B0A3A7   7.79:1 on bg        7.58:1 on bg-2 → anywhere
 
-     All three happen to clear AA on the page too, but the convention holds:
-     text sitting directly on --bg still uses --muted-on-bg. The margin is what
-     changed, not the rule — the next theme may not have it.
+     Still warm, for the same reason they were warm before: a blue-grey against
+     a wine-tinted near-black reads as a different, slightly dirty colour rather
+     than as neutral. The greys carry the temperature of the surface they sit on.
 
-     These are warm greys, not the template's slate ones. A blue-grey on a rose
-     page reads as a different, slightly dirty colour rather than as neutral —
-     the greys have to carry the same temperature as the surface they sit on.
+     The convention holds even though all three clear AA everywhere: text
+     sitting directly on --bg uses --muted-on-bg.                             */
+  --text:        #F6F0F1;
+  --muted:       #A79A9E;
+  --muted-2:     #988C90;
+  --muted-on-bg: #B0A3A7;
 
-     Re-measure all three when you change --surface or --bg. A tone that passes
-     on white routinely fails on a tinted page, which is the single most
-     repeated bug across both source apps. --muted-2 must still clear 4.5:1 on
-     surface: Budget's old second grey (#A09BB0) sat at 2.69:1 and is rejected. */
-  --text:        #17100F;
-  --muted:       #6B5560;
-  --muted-2:     #6F6268;
-  --muted-on-bg: #5F4A53;
-  --on-dark:     #FFFFFF;
+  /* Ink for a saturated or inverted fill — see the note at the top. Its three
+     call sites are all bright ON THIS THEME: the tick inside a completed task
+     ring (--ok), the toast (--text as a background), and the hero card's brand
+     gradient. Measured: 10.75:1 on --ok, 16.64:1 on --text, 5.83–11.12:1
+     across the hero gradient, 10.04:1 on --danger-ink for the danger toast. */
+  --on-dark:     #1A0F12;
+
+  /* Two companions the light theme never needed, because index.css could get
+     away with a literal white there and it was invisible.
+
+     --on-dark-muted  the secondary line inside a hero card. index.css had
+                      `rgb(255 255 255 / .78)` hardcoded — the one colour
+                      literal left in the kit, and it fails outright on a bright
+                      card. Now a token, which is the house rule anyway.
+                      Measured 4.72:1 on the darkest end of the hero gradient.
+     --on-dark-veil   the fill behind .tag-on-dark, a chip sitting ON a
+                      saturated card. A white veil lightens a bright card and
+                      the chip vanishes; on dark it has to darken instead.
+
+     Both are candidates to promote into the shared template — they are gaps
+     the kit only reveals once someone writes a dark theme for it.           */
+  --on-dark-muted: rgb(26 15 18 / .74);
+  --on-dark-veil:  rgb(26 15 18 / .14);
+
+  /* Ink for every step of the heatmap ramp.
+     The ramp spans a near-black cell (alpha .12) to a vivid rose one (.72), and
+     NO single fixed ink survives that span — which is why the light theme
+     switched from --brand-deep to --on-brand halfway up, and why that switch
+     broke the moment the page went dark (the crossover lands at a different
+     step). Naming the ink makes it the theme's decision instead of a magic
+     number baked into index.css. Here it is --text throughout, measured at
+     every step: 12.92 / 10.36 / 7.78 / 6.06 / 4.53:1. */
+  --heat-ink:    #F6F0F1;
 
   /* ── Status ────────────────────────────────────────────────────────────────
-     Four semantic roles. Components never say "green" or "red", they say --ok /
-     --danger — a token named after a hue cannot be re-themed, and "--blue-bg"
-     is meaningless in a purple app.
+     Four semantic roles, each a solid plus the wash / line / ink triad. A
+     component never says "green" or "red", it says --ok / --danger.
 
-     Each role is a solid plus a TINT TRIAD:
-       --x        solid fill  (progress bars, dots, chart marks)
-       --x-wash   soft background
-       --x-line   hairline border on that wash
-       --x-ink    text/icon colour on that wash
+     THE COLLISION THIS THEME HAS TO SOLVE, AGAIN AND HARDER: the brand is red,
+     danger is red, and on a black page BOTH have to be bright to exist at all —
+     so the luminance gap the light theme relied on is much harder to hold.
 
-     Any component showing a status consumes the same triad, so a tag and a
-     highlighted row can never drift apart — which is exactly what happened in
-     Plant Tracker, where the same status was inked #4A7FAB in one rule and
-     #3C6E99 in another.
+       1. Different hue families, as before. Brand is a blue-leaning rose
+          (~350°); danger is pushed further into orange than it was on light
+          (~22°, up from 12°) to buy separation that luminance alone can't.
+       2. Different luminance: --danger measures 1.43:1 against --brand. That is
+          less than the light theme's 1.87:1 and it is the honest number — two
+          bright warm colours on black cannot be pushed further apart without
+          one of them ceasing to look like STACK. The extra hue rotation is what
+          makes up the difference, including for a red-deficient eye.
 
-     THE COLLISION THIS THEME HAS TO SOLVE: the brand is red, and so is danger.
-     Two rules keep them apart, and both are load-bearing —
+     Never substitute one for the other, and never add a "red" that is neither.
 
-       1. Different hue *families*. Brand is wine (a blue-leaning red at 348°);
-          danger is vermillion (an orange-leaning red at 12°). They are not two
-          steps of one ramp, and no component may substitute one for the other.
-       2. Different luminance. --danger measures 1.87:1 against --brand, so the
-          two read as distinct even at chip size and even to a red-deficient
-          eye, which is the case where hue alone carries nothing.
+     --ok is a lime-green rather than the light theme's forest #00875A, which
+     measures 1.9:1 on this page. It is the one status that appears as a FILL
+     UNDER A GLYPH (the completed task ring), so it is the one that has to be
+     bright: --on-dark on it measures 10.75:1.
 
-     --ok is darkened from the template's #00A86B to #00875A so the completed
-     task-ring's white tick clears 3:1 (4.55:1 measured). On the template's
-     lighter green it sat at 2.6:1 — the one place in this app where a status
-     colour is a *fill under white text* rather than ink on a wash.
+     Measured inks, each on its own wash: ok 9.19, warn 10.14, danger 7.87,
+     info 8.33, neutral 6.49. Every wash also clears 1.06:1 against --surface,
+     so a tinted card is still visibly a tinted card.                        */
+  --ok:          #4ADE80;
+  --ok-wash:     #16301F;
+  --ok-line:     #245432;
+  --ok-ink:      #6EE79B;
 
-     Measured inks, each on its own wash: ok 5.83, warn 6.02, danger 5.67,
-     info 7.84, neutral 5.88.                                                 */
-  --ok:          #00875A;
-  --ok-wash:     #E6F7F0;
-  --ok-line:     #B7EBD4;
-  --ok-ink:      #046C4A;
+  --warn:        #F5C542;
+  --warn-wash:   #33260A;
+  --warn-line:   #55400F;
+  --warn-ink:    #F7D274;
 
-  --warn:        #B4690E;
-  --warn-wash:   #FDF3E2;
-  --warn-line:   #F3DCB4;
-  --warn-ink:    #8A4E08;
+  --danger:      #FF9052;
+  --danger-wash: #451C14;
+  --danger-line: #6B3020;
+  --danger-ink:  #FFA983;
 
-  --danger:      #E24A2B;
-  --danger-wash: #FDF0EC;
-  --danger-line: #F7D2C6;
-  --danger-ink:  #AF3418;
-
-  --info:        #1D4ED8;
-  --info-wash:   #EEF3FD;
-  --info-line:   #C7D8F7;
-  --info-ink:    #1E40AF;
+  --info:        #6BA8FF;
+  --info-wash:   #142438;
+  --info-line:   #1F3A5C;
+  --info-ink:    #8FC0FF;
 
   /* Warm neutrals, matching the page temperature — see the note on the greys. */
-  --neutral-wash: #F4F0F1;
-  --neutral-line: #E5DDDF;
-  --neutral-ink:  #645A5D;
+  --neutral-wash: #2A2426;
+  --neutral-line: #3A3335;
+  --neutral-ink:  #B3A6AA;
 
   /* ── Shape ─────────────────────────────────────────────────────────────────
-     Three steps plus a pill. --radius is cards and sheets, --radius-sm is
-     buttons and inline blocks, --radius-xs is inputs and small tiles.
+     Three steps plus a pill, opened up from the kit's 22/14/10.
 
-     22/14/10 is Plant Tracker's scale, adopted wholesale. Budget Tracker's
-     18/12/9 was the sole outlier across all three steps, and its 9px was too
-     tight to read as deliberate. Budget migrates; Plant changes nothing.     */
-  --radius:      22px;
-  --radius-sm:   14px;
-  --radius-xs:   10px;
+     Softer corners are the most portable thing about the reference this redesign
+     was drawn from, and they survive the translation because they are a SCALE,
+     not a one-off: every card, sheet, button, input and tile reads them, so the
+     whole app rounds together rather than one screen drifting. Kept in
+     proportion (roughly 2:1.3:1) so the steps still read as one family.
+
+     28 is a deliberate ceiling. Past ~32px a --radius-sm button inside a
+     --radius card starts to look like it is escaping the corner, and the
+     heat-map cells (--radius-xs on a ~44px square) turn into circles.       */
+  --radius:      28px;
+  --radius-sm:   18px;
+  --radius-xs:   12px;
   --radius-pill: 99px;
 
   /* ── Elevation ─────────────────────────────────────────────────────────────
-     Brand-tinted, never neutral grey — a grey shadow under a tinted page reads
-     as dirt. Three levels: resting card, floating thing, brand-coloured glow
-     under a primary control.                                                 */
-  --shadow-card:  0 8px 24px  rgb(var(--brand-rgb) / .09);
-  --shadow-pop:   0 16px 40px rgb(var(--brand-rgb) / .18);
-  --shadow-brand: 0 4px 14px  rgb(var(--brand-rgb) / .34);
+     BLACK, not brand-tinted — the one place this theme breaks the kit's rule,
+     and it has to. The rule ("brand-tinted, never neutral grey — a grey shadow
+     under a tinted page reads as dirt") assumes a light page, where a shadow is
+     darker than what it falls on. Here --brand-rgb is a bright rose, so the
+     same rule would paint a pink GLOW under every card.
+
+     Deeper alphas than the light theme, too: a shadow only reads on a near-black
+     page if it is close to opaque.
+
+     --shadow-brand keeps the brand tint, because that one IS a glow by
+     intent — it sits under the primary control and nothing else.            */
+  --shadow-card:  0 8px 24px  rgb(0 0 0 / .45);
+  --shadow-pop:   0 18px 44px rgb(0 0 0 / .62);
+  --shadow-brand: 0 6px 18px  rgb(var(--brand-rgb) / .32);
 
   /* ── Type ──────────────────────────────────────────────────────────────────
-     Two families: Sora sets headings and figures, Inter sets everything else.
-     Seven sizes, and nothing may invent an eighth — both source apps drifted to
-     9 / 9.5 / 11.5 / 12.5 / 13.5 / 18.5px and the inconsistency shows.       */
+     Unchanged from the light theme, and from the template. Two families: Sora
+     sets headings and figures, Inter sets everything else. Seven sizes, and
+     nothing may invent an eighth.                                           */
   --font-body:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-display: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-  /* 11px is the floor. Both apps shipped 8–10px text, which compounds with the
-     contrast limits above into something genuinely hard to read. Sizes step up
-     once at ≥1100px (below) so desktop isn't served phone-sized type.        */
   --fs-xs:  11px;   /* micro-labels, tag text, metadata */
   --fs-sm:  12.5px; /* secondary body, table cells */
   --fs-md:  14px;   /* body default */
@@ -209,25 +281,18 @@
   --sp-5: 24px;
   --sp-6: 32px;
 
-  /* ── Layout ────────────────────────────────────────────────────────────────
-     --shell-w is the phone app column. Above 700px the shell turns into
-     sidebar + content and these three widths take over.                      */
+  /* ── Layout ────────────────────────────────────────────────────────────── */
   --shell-w:      440px;
   --sidebar-w:    226px;
   --content-w:    860px;
   --content-w-lg: 1040px;
-  --reading-w:    620px; /* settings / onboarding: short rows, narrow column */
+  --reading-w:    620px;
   --tap:          44px;  /* minimum interactive size, everywhere, no exceptions */
 
-  /* Measure — the cap on a line of prose, in characters, not pixels.
-     A card allowed to run the full 1040px desktop column sets ~130 characters
-     per line; comfortable reading is 45–75. `ch` units make the cap follow the
-     font size instead of drifting when the type scale steps up. */
-  --measure:      68ch;
-  --measure-tight: 44ch; /* centred copy: shorter still, or the eye loses the ragged left */
+  --measure:       68ch;
+  --measure-tight: 44ch;
 
-  /* ── Motion ────────────────────────────────────────────────────────────────
-     --ease-out for things settling, --ease-pop for things arriving.          */
+  /* ── Motion ────────────────────────────────────────────────────────────── */
   --dur-fast: .12s;
   --dur-mid:  .22s;
   --dur-slow: .28s;
@@ -236,8 +301,7 @@
 }
 
 /* One step up on large screens. Because every rule in index.css sizes from
-   these tokens, this single block scales the whole app — neither source app
-   could do this, which is why their desktop layouts rendered phone-sized text. */
+   these tokens, this single block scales the whole app. */
 @media (min-width: 1100px) {
   :root {
     --fs-xs:  12px;
@@ -253,8 +317,6 @@
 /* ============================================================================
    REFERENCE THEME A — Budget Tracker (purple, opaque, flat page)
    ============================================================================
-   Note: no radius override. Budget's 18/12/9 is retired in favour of the kit's
-   22/14/10 — that migration is the point of adopting the kit.
 :root {
   --brand: #7E49B3; --brand-soft: #A67DD4; --brand-deep: #5A2D8E;
   --brand-wash: #F0E8FB; --brand-line: #D4B8F0; --brand-rgb: 90 45 142;
@@ -268,10 +330,6 @@
 /* ============================================================================
    REFERENCE THEME B — Plant Tracker (green, glass, gradient page)
    ============================================================================
-   Radius matches the kit default, so it isn't repeated here. The status inks
-   are the values Plant had already drifted to in two places — named once.
-   Measured on this theme: --muted 4.84:1 on surface, --muted-2 4.62:1,
-   --muted-on-bg 5.12:1 on --bg.
 :root {
   --brand: #40916C; --brand-soft: #74C69D; --brand-deep: #1B4332;
   --brand-wash: #D8F3DC; --brand-line: #74C69D; --brand-rgb: 27 67 50;
@@ -283,5 +341,47 @@
   --danger: #E0533D; --danger-wash: #FDEDEA; --danger-line: #F3CFC7; --danger-ink: #B0472F;
   --warn:   #E9A23B; --warn-wash:   #FBF3DF; --warn-line:   #F0DCB0; --warn-ink:   #A76B10;
   --info:   #7FB2DC; --info-wash:   #EAF3FB; --info-line:   #CFE3F3; --info-ink:   #3C6E99;
+}
+   ========================================================================== */
+
+/* ============================================================================
+   REFERENCE THEME C — STACK, light (the WINE set this file replaced)
+   ============================================================================
+   STACK v2's original theme: rose page, deep wine ink. Kept whole rather than
+   deleted, because "go back to light" should be a comment swap and not an
+   archaeology exercise — and because its numbers are the worked example of the
+   same measurements done for a light page.
+
+   Its contrast notes, measured then, against ITS surfaces: --muted 6.79:1 on
+   surface, --muted-2 5.80:1, --muted-on-bg 7.18:1 on --bg; #FFF on --brand
+   7.49:1; --brand-deep on --brand-wash 10.31:1; brand-vs-danger 1.87:1; white
+   on --ok 4.55:1 (which is why --ok was darkened from the template's #00A86B).
+
+   Three things must be restored ALONGSIDE it, or the app renders wrong — they
+   are the places where dark needed the opposite value, not a different shade:
+     · color-scheme: light
+     · --on-dark: #FFFFFF, --on-dark-muted: rgb(255 255 255 / .78),
+       --on-dark-veil: rgb(255 255 255 / .16)
+     · --heat-ink: --on-brand at the top of the ramp — the light theme inked
+       heat-1/-2 with --brand-deep and heat-3/-5 with --on-brand, so a single
+       --heat-ink needs re-deriving rather than copying.
+   The radius scale also reverts to the kit's 22 / 14 / 10 if you want the
+   original look rather than this one on a light page.
+:root {
+  --brand: #A31D3F; --brand-soft: #C9455F; --brand-deep: #6E1029;
+  --brand-wash: #FBEBEF; --brand-line: #EFC3CE; --on-brand: #FFFFFF;
+  --brand-rgb: 110 16 41;
+  --bg: #F8EFF1; --bg-2: #F3E6E9;
+  --surface: #FFFFFF; --surface-2: #FCF5F6; --surface-blur: 0px;
+  --border: #EEDDE1; --border-strong: #DBBFC6;
+  --text: #17100F; --muted: #6B5560; --muted-2: #6F6268; --muted-on-bg: #5F4A53;
+  --ok:     #00875A; --ok-wash:     #E6F7F0; --ok-line:     #B7EBD4; --ok-ink:     #046C4A;
+  --warn:   #B4690E; --warn-wash:   #FDF3E2; --warn-line:   #F3DCB4; --warn-ink:   #8A4E08;
+  --danger: #E24A2B; --danger-wash: #FDF0EC; --danger-line: #F7D2C6; --danger-ink: #AF3418;
+  --info:   #1D4ED8; --info-wash:   #EEF3FD; --info-line:   #C7D8F7; --info-ink:   #1E40AF;
+  --neutral-wash: #F4F0F1; --neutral-line: #E5DDDF; --neutral-ink: #645A5D;
+  --shadow-card:  0 8px 24px  rgb(var(--brand-rgb) / .09);
+  --shadow-pop:   0 16px 40px rgb(var(--brand-rgb) / .18);
+  --shadow-brand: 0 4px 14px  rgb(var(--brand-rgb) / .34);
 }
    ========================================================================== */

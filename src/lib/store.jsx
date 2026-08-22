@@ -20,8 +20,21 @@
    ========================================================================== */
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { STORAGE_KEY } from '../app.config.jsx'
+import { STORAGE_KEY, APP_VERSION } from '../app.config.jsx'
 import { getLocalDateKey, isDateKey } from './dates.js'
+import { defaultRoutine } from './protocol.js'
+import { normaliseRoutine } from './routine.js'
+import {
+  isAuthenticated, isConfigured, signIn, clearToken, resolveFolder, folderUrl,
+  findSyncFile, createSyncFile, updateSyncFile, downloadSyncFile, AuthExpiredError,
+} from './googleDrive.js'
+
+/* Where the Drive sync file is, and when it was last agreed with. Deliberately
+   OUTSIDE the synced blob — it is about this device's relationship to the file,
+   so syncing it would mean each device overwriting the other's bookkeeping. */
+const SYNC_META_KEY = 'stack:sync'
+const loadSyncMeta = () => { try { return JSON.parse(localStorage.getItem(SYNC_META_KEY)) || {} } catch { return {} } }
+const saveSyncMeta = m => { try { localStorage.setItem(SYNC_META_KEY, JSON.stringify(m)) } catch { /* private mode */ } }
 
 const EMPTY = {
   items: [],                       // day logs, id = local date key
@@ -33,6 +46,12 @@ const EMPTY = {
   settingsUpdatedAt: null,
   profile: { name: '' },
   profileUpdatedAt: null,
+  // The editable protocol. Seeded from protocol.js and the user's from then on.
+  // It lives in state (not a separate key) so one export backs up the routine
+  // and the history together — restoring a phone with the days but not the
+  // checklist that produced them would be a strange thing to hand someone.
+  routine: null,                   // null only until loadLocal seeds it
+  routineUpdatedAt: null,
 }
 
 const StoreCtx = createContext(null)
@@ -41,8 +60,39 @@ const now = () => new Date().toISOString()
 
 export function StoreProvider({ children }) {
   const [state, setState] = useState(loadLocal)
-  const [sync, setSync] = useState({ busy: false, error: null, lastSyncedAt: null })
+  const [sync, setSync] = useState(() => ({
+    configured: isConfigured(),
+    connected: isAuthenticated(),
+    busy: false,
+    error: null,
+    lastSyncedAt: loadSyncMeta().lastSyncedAt || null,
+    folder: null,               // { id, name, pinned } once resolved
+  }))
   const hydrated = useRef(false)   // skip the very first write: nothing changed yet
+
+  /* Sync bookkeeping, all refs because none of it should cause a render:
+       latest      the freshest state, readable from inside an async push
+       dirty       local edits not yet pushed
+       busy        a push already in flight — Drive calls are not reentrant
+       timer       the debounce
+       applying    suppresses the dirty flag while a PULL writes to state,
+                   otherwise merging in remote data instantly marks the device
+                   dirty and it pushes straight back — a sync loop between two
+                   devices that never settles. */
+  const latest = useRef(state)
+  const dirty = useRef(false)
+  /* The dirty effect needs its OWN first-run latch, not `hydrated`. Effects run
+     in declaration order, and the save effect above flips `hydrated` to true on
+     that same first pass — so by the time the dirty effect runs on mount it
+     already reads true, and every cold start marked itself dirty and rewrote
+     the Drive file on open. */
+  const dirtyFirstRun = useRef(true)
+  const syncBusy = useRef(false)
+  const syncTimer = useRef(null)
+  const applying = useRef(0)
+  const syncNowRef = useRef(() => {})
+
+  useEffect(() => { latest.current = state }, [state])
 
   useEffect(() => {
     if (!hydrated.current) { hydrated.current = true; return }
@@ -128,6 +178,32 @@ export function StoreProvider({ children }) {
     }))
   }, [])
 
+  /* ── Routine ─────────────────────────────────────────────────────────────
+     One mutator for the whole document. `updater` is any pure function from
+     routine → routine, which is exactly the shape of every helper exported by
+     routine.js, so the editor composes them instead of doing list surgery in a
+     component:
+
+         setRoutine(r => upsertTask(r, task))
+
+     Stamping `routineUpdatedAt` here — rather than in each helper — is what
+     keeps the helpers pure and testable, and it means no edit path can forget
+     the stamp that the merge relies on.                                      */
+
+  const setRoutine = useCallback(updater => {
+    setState(s => {
+      const next = typeof updater === 'function' ? updater(s.routine) : updater
+      if (!next || next === s.routine) return s
+      return { ...s, routine: next, routineUpdatedAt: now() }
+    })
+  }, [])
+
+  /** Back to the shipped protocol. Day logs are untouched — history keyed by an
+   *  id the seed still uses simply lines up again. */
+  const resetRoutine = useCallback(() => {
+    setState(s => ({ ...s, routine: defaultRoutine(), routineUpdatedAt: now() }))
+  }, [])
+
   /* ── Settings & profile ──────────────────────────────────────────────────*/
 
   const setSettings = useCallback(patch => {
@@ -138,9 +214,12 @@ export function StoreProvider({ children }) {
     setState(s => ({ ...s, profile: { ...s.profile, ...patch }, profileUpdatedAt: now() }))
   }, [])
 
+  /** Erase everything, including the routine — this is the "hand the phone on"
+   *  button, so it has to leave a genuinely fresh install, not a blank history
+   *  under someone else's checklist. */
   const resetAll = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY)
-    setState(EMPTY)
+    setState({ ...EMPTY, routine: defaultRoutine() })
   }, [])
 
   /* ── Backup ──────────────────────────────────────────────────────────────
@@ -155,18 +234,33 @@ export function StoreProvider({ children }) {
     state,
   }, null, 2), [state])
 
-  /** Accepts either a STACK backup blob or a bare legacy `{key: {taskId:true}}`
-   *  dump, and merges rather than replaces — importing twice is harmless. */
+  /**
+   * Accepts either a STACK backup blob or a bare legacy `{key: {taskId:true}}`
+   * dump. Day logs MERGE rather than replace — importing twice is harmless.
+   *
+   * A routine can't merge that way: two edited routines have no meaningful
+   * union, and half-applying one would produce a checklist neither device ever
+   * had. So it follows the same last-write-wins rule as settings and profile —
+   * newest `routineUpdatedAt` wins — and the caller is told whether the routine
+   * came across, because that is a much bigger change than a few extra days.
+   */
   const importBackup = useCallback(raw => {
     let parsed
     try { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw }
     catch { throw new Error('That is not valid JSON.') }
 
     let incoming
+    let routine = null
+    let routineAt = null
+
     if (parsed?.format === 'stack-backup' && parsed.state) {
       incoming = parsed.state.items || []
+      routine = parsed.state.routine || null
+      routineAt = parsed.state.routineUpdatedAt || null
     } else if (Array.isArray(parsed?.items)) {
       incoming = parsed.items
+      routine = parsed.routine || null
+      routineAt = parsed.routineUpdatedAt || null
     } else if (parsed && typeof parsed === 'object') {
       incoming = normaliseLegacyDump(parsed)
     } else {
@@ -174,32 +268,158 @@ export function StoreProvider({ children }) {
     }
     if (!incoming.length) throw new Error('No day records found in that file.')
 
-    setState(s => ({ ...s, items: mergeDayLogs(s.items, incoming) }))
-    return incoming.length
+    // Decided out here, not inside the updater: the updater runs after this
+    // function has already returned (and twice under StrictMode), so a flag set
+    // in there would always read back false — and would double-report if it
+    // didn't.
+    const takeRoutine = !!routine && (routineAt || '') > (state.routineUpdatedAt || '')
+
+    setState(s => {
+      const next = { ...s, items: mergeDayLogs(s.items, incoming) }
+      if (takeRoutine) {
+        next.routine = normaliseRoutine(routine, s.routine)
+        next.routineUpdatedAt = routineAt
+      }
+      return next
+    })
+    return { days: incoming.length, routine: takeRoutine }
+  }, [state.routineUpdatedAt])
+
+  /* ── Google Drive sync ───────────────────────────────────────────────────
+     The slot this file always had one comment about — "only the transport is
+     missing" — filled in. `mergeStates` needed no changes: day logs union by
+     date key with newest-edit-wins, the routine resolves last-write-wins, and
+     tombstones survive. That was the whole point of storing day logs as the
+     template's `items` array in the first place.
+
+     MERGE, NOT LAST-WRITE-WINS, for the file as a whole. A phone that has been
+     offline for a week can add the days it logged, but it can never wipe out
+     days it has never heard of. Plant Tracker learned this the same way.      */
+
+  const connectGoogle = useCallback(() => signIn(), [])
+
+  const disconnectGoogle = useCallback(() => {
+    clearToken()
+    // The sync file is deliberately NOT deleted: disconnecting is "stop talking
+    // to Drive on this device", not "throw away the backup".
+    setSync(s => ({ ...s, connected: false, error: null, folder: null }))
   }, [])
 
-  /* ── Sync slot ───────────────────────────────────────────────────────────
-     Unused today. Hand `pullAndMerge` a function returning a remote state and
-     the merge below is already conflict-safe; only the transport is missing. */
+  const syncNow = useCallback(async () => {
+    if (!isAuthenticated()) { setSync(s => ({ ...s, connected: false })); return }
+    if (syncBusy.current) return
+    syncBusy.current = true
+    setSync(s => ({ ...s, connected: true, busy: true, error: null }))
 
-  const pullAndMerge = useCallback(async pull => {
-    setSync(s => ({ ...s, busy: true, error: null }))
     try {
-      const remote = await pull()
-      if (remote) setState(local => mergeStates(local, remote))
-      setSync({ busy: false, error: null, lastSyncedAt: now() })
+      const folder = await resolveFolder()
+      const meta = loadSyncMeta()
+      let fileId = meta.fileId || (await findSyncFile())?.id || null
+
+      if (fileId) {
+        // A missing or unreadable file is treated as "no file" rather than an
+        // error: the usual cause is that it was deleted from Drive by hand, and
+        // the right response is to write a fresh one, not to keep failing.
+        const remote = await downloadSyncFile(fileId).catch(() => null)
+
+        if (remote?.state) {
+          const merged = mergeStates(latest.current, remote.state)
+
+          applying.current += 1
+          setState(merged)
+
+          // Push back only when this device actually contributed something the
+          // remote lacks. Without this check every open of the app rewrites the
+          // file, and `modifiedTime` stops meaning anything.
+          const remoteDays = new Set((remote.state.items || []).map(i => i.id))
+          const contributed =
+            dirty.current ||
+            merged.items.length !== (remote.state.items || []).length ||
+            merged.items.some(i => !remoteDays.has(i.id)) ||
+            (merged.routineUpdatedAt || '') > (remote.state.routineUpdatedAt || '')
+
+          if (contributed) {
+            const payload = { savedAt: now(), version: APP_VERSION, state: merged }
+            await updateSyncFile(fileId, JSON.stringify(payload))
+            dirty.current = false
+            saveSyncMeta({ fileId, savedAt: payload.savedAt, lastSyncedAt: Date.now() })
+          } else {
+            dirty.current = false
+            saveSyncMeta({ fileId, savedAt: remote.savedAt || null, lastSyncedAt: Date.now() })
+          }
+        } else {
+          const payload = { savedAt: now(), version: APP_VERSION, state: latest.current }
+          await updateSyncFile(fileId, JSON.stringify(payload))
+          dirty.current = false
+          saveSyncMeta({ fileId, savedAt: payload.savedAt, lastSyncedAt: Date.now() })
+        }
+      } else {
+        // First sync for this account: seed the file from what is on the device.
+        const payload = { savedAt: now(), version: APP_VERSION, state: latest.current }
+        fileId = await createSyncFile(JSON.stringify(payload))
+        dirty.current = false
+        saveSyncMeta({ fileId, savedAt: payload.savedAt, lastSyncedAt: Date.now() })
+      }
+
+      setSync({
+        configured: isConfigured(), connected: true, busy: false,
+        error: null, lastSyncedAt: Date.now(), folder,
+      })
     } catch (e) {
-      setSync(s => ({ ...s, busy: false, error: e.message }))
+      const expired = e instanceof AuthExpiredError
+      setSync(s => ({
+        ...s,
+        busy: false,
+        connected: !expired,
+        error: expired ? 'Google session expired — reconnect below.' : e.message,
+      }))
+    } finally {
+      syncBusy.current = false
     }
+  }, [])
+  syncNowRef.current = syncNow
+
+  /* Mark local edits dirty and schedule a debounced push. 4s matches Plant
+     Tracker: long enough that ticking off a morning routine is one upload
+     rather than eight, short enough to survive closing the app. */
+  useEffect(() => {
+    if (dirtyFirstRun.current) { dirtyFirstRun.current = false; return }
+    if (applying.current > 0) { applying.current -= 1; return }
+    dirty.current = true
+    if (!isAuthenticated()) return
+    clearTimeout(syncTimer.current)
+    syncTimer.current = setTimeout(() => syncNowRef.current(), 4000)
+    return () => clearTimeout(syncTimer.current)
+  }, [state])
+
+  /* Pull once on startup when already connected, and again whenever the app
+     comes back to the foreground — the phone is the second device here, and it
+     is usually the one that has been asleep. */
+  useEffect(() => {
+    if (!isAuthenticated()) return
+    syncNowRef.current()
+    const onVisible = () => { if (document.visibilityState === 'visible') syncNowRef.current() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
+  /* Called by the OAuth callback route once a token has been stored. */
+  const refreshSync = useCallback(() => {
+    setSync(s => ({ ...s, connected: isAuthenticated() }))
+    syncNowRef.current()
   }, [])
 
   const value = useMemo(() => ({
-    state, sync,
+    state, sync, routine: state.routine,
     getDay, toggleTask, ensureDay, resetDay,
+    setRoutine, resetRoutine,
     setSettings, setProfile, resetAll,
-    exportBackup, importBackup, pullAndMerge,
+    exportBackup, importBackup,
+    connectGoogle, disconnectGoogle, syncNow, refreshSync, folderUrl,
   }), [state, sync, getDay, toggleTask, ensureDay, resetDay,
-       setSettings, setProfile, resetAll, exportBackup, importBackup, pullAndMerge])
+       setRoutine, resetRoutine,
+       setSettings, setProfile, resetAll, exportBackup, importBackup,
+       connectGoogle, disconnectGoogle, syncNow, refreshSync])
 
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>
 }
@@ -235,6 +455,11 @@ export function mergeStates(local, remote) {
 
   const settingsLocal = !!local.settingsUpdatedAt && local.settingsUpdatedAt >= (remote.settingsUpdatedAt || '')
   const profileLocal  = !!local.profileUpdatedAt  && local.profileUpdatedAt  >= (remote.profileUpdatedAt  || '')
+  // The routine is a single document, not a set: there is no union of two
+  // edited checklists that either device would recognise, so it resolves by
+  // last edit like the other single-document fields. `>=` keeps local on a tie,
+  // which matters because a tie means the same edit arrived back from sync.
+  const routineLocal  = !!local.routineUpdatedAt  && local.routineUpdatedAt  >= (remote.routineUpdatedAt  || '')
 
   return {
     ...remote, ...local,
@@ -244,6 +469,8 @@ export function mergeStates(local, remote) {
     settingsUpdatedAt: settingsLocal ? local.settingsUpdatedAt : remote.settingsUpdatedAt,
     profile:           profileLocal  ? local.profile           : remote.profile,
     profileUpdatedAt:  profileLocal  ? local.profileUpdatedAt  : remote.profileUpdatedAt,
+    routine:           routineLocal  ? local.routine           : (remote.routine || local.routine),
+    routineUpdatedAt:  routineLocal  ? local.routineUpdatedAt  : remote.routineUpdatedAt,
   }
 }
 
@@ -298,15 +525,36 @@ function pruneFalse(o) {
    Swap these two for idb if the data ever outgrows localStorage. At one small
    record per day that is roughly a century away, so it won't.                */
 
+/**
+ * Read state, and guarantee a usable routine on the way out.
+ *
+ * The seed happens HERE rather than in an effect, so the very first render
+ * already has a routine to build a checklist from. An effect would have to
+ * render one frame of "no protocol" first, and every consumer would need a
+ * null branch that exists for a single frame and is therefore never tested.
+ *
+ * A device that upgrades into this version has saved state with no `routine`
+ * key at all: it falls through to the seed, which reproduces the protocol it
+ * was already showing — same task ids, same days — so nothing about the
+ * upgrade is visible, and its history keeps lining up.
+ */
 function loadLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return EMPTY
+    if (!raw) return { ...EMPTY, routine: defaultRoutine() }
     // spread over EMPTY so a schema addition never lands as undefined
     const saved = JSON.parse(raw)
-    return { ...EMPTY, ...saved, settings: { ...EMPTY.settings, ...saved.settings } }
+    return {
+      ...EMPTY,
+      ...saved,
+      settings: { ...EMPTY.settings, ...saved.settings },
+      // Normalised on every load, not only on import: this blob is editable by
+      // hand in devtools and survives across versions, and every reader below
+      // assumes the shape is sound.
+      routine: normaliseRoutine(saved.routine, defaultRoutine()),
+    }
   } catch {
-    return EMPTY
+    return { ...EMPTY, routine: defaultRoutine() }
   }
 }
 

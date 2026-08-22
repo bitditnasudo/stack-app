@@ -15,10 +15,10 @@ import { buildWeek, weekStats } from '../lib/weeks.js'
 import { getWeekStartMonday, formatWeekRange } from '../lib/dates.js'
 
 export default function Recap() {
-  const { state } = useStore()
+  const { state, routine } = useStore()
   const [offset, setOffset] = useState(0)
 
-  const week  = useMemo(() => buildWeek(state.items, offset), [state.items, offset])
+  const week  = useMemo(() => buildWeek(state.items, offset, routine), [state.items, offset, routine])
   const stats = useMemo(() => weekStats(week), [week])
 
   const rangeLabel =

@@ -8,13 +8,21 @@
    ========================================================================== */
 
 import { getWeekDates, getLocalDateKey, WEEK_LABELS, MONTH_NAMES } from './dates.js'
-import { dayKind } from './protocol.js'
+import { dayKindFor } from './routine.js'
 
 /**
- * @param items  day logs from the store
- * @param offset 0 = this week, -1 = last week
+ * @param items   day logs from the store
+ * @param offset  0 = this week, -1 = last week
+ * @param routine the current routine — supplies each day's badge
+ *
+ * The badge is computed from the routine AS IT IS NOW, not as it was during the
+ * week being shown: renaming "Gym" to "Lifting" relabels past Mondays too. That
+ * is the honest trade — the alternative is versioning the routine and storing a
+ * pointer on every day log, which buys a label nobody is looking back for. The
+ * numbers, which people DO look back for, are unaffected: `done` and `total`
+ * both come from the stored log, never from the routine.
  */
-export function buildWeek(items, offset = 0) {
+export function buildWeek(items, offset = 0, routine) {
   const byId = new Map(items.map(i => [i.id, i]))
   const todayKey = getLocalDateKey()
   const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999)
@@ -32,7 +40,7 @@ export function buildWeek(items, offset = 0) {
       date: d,
       label: WEEK_LABELS[i],
       jsDay: d.getDay(),
-      kind: dayKind(d.getDay()),
+      kind: dayKindFor(routine, d.getDay()),
       done,
       total,
       pct: total > 0 ? Math.round((done / total) * 100) : null,

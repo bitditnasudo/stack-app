@@ -1,21 +1,27 @@
 /* ============================================================================
    OVERVIEW — today, in one look.
    ============================================================================
-   Ring → the split that actually matters (supplements vs skincare) → this week
-   at a glance. Anything needing week navigation belongs on Recap.
+   Ring → the split that actually matters → this week at a glance. Anything
+   needing week navigation belongs on Recap.
+
+   That split used to be a hardcoded supplements-vs-skincare pair. The tags are
+   the user's now, so the breakdown is one bar per tag that has a task today —
+   which is also why the leading icons went: a per-tag icon would need a picker,
+   and the tag chip already says which row is which in the user's own words.
    ========================================================================== */
 
 import { useMemo } from 'react'
-import { Pill, Droplets } from 'lucide-react'
 import { PageHeader } from '../components/AppShell.jsx'
 import { Card, SectionHead, Ring, Progress, Heatmap, Tag } from '../components/UI.jsx'
 import { useToday } from '../lib/useToday.js'
+import { useStore } from '../lib/store.jsx'
 import { buildWeek, weekStats } from '../lib/weeks.js'
 import { formatLongDay } from '../lib/dates.js'
 
 export default function Overview() {
-  const { date, kind, done, total, pct, supp, skin, items } = useToday()
-  const week  = useMemo(() => buildWeek(items, 0), [items])
+  const { routine } = useStore()
+  const { date, kind, done, total, pct, byTag, items } = useToday()
+  const week  = useMemo(() => buildWeek(items, 0, routine), [items, routine])
   const stats = useMemo(() => weekStats(week), [week])
 
   return (
@@ -43,31 +49,26 @@ export default function Overview() {
         </div>
       </Card>
 
-      <SectionHead title="By category" sub="today" />
-      <Card>
-        <div className="row row-tight">
-          <span className="row-icon"><Pill size={16} /></span>
-          <div className="grow">
-            <div className="row">
-              <b className="grow">Supplements</b>
-              <span className="muted nums">{supp.done}/{supp.total}</span>
-            </div>
-            <Progress value={supp.done} max={supp.total || 1}
-                       />
-          </div>
-        </div>
-        <div className="row row-tight">
-          <span className="row-icon"><Droplets size={16} /></span>
-          <div className="grow">
-            <div className="row">
-              <b className="grow">Skincare</b>
-              <span className="muted nums">{skin.done}/{skin.total}</span>
-            </div>
-            <Progress value={skin.done} max={skin.total || 1}
-                       />
-          </div>
-        </div>
-      </Card>
+      {/* Omitted entirely when today's tasks carry no tags — an empty "By tag"
+          heading reads as data that failed to load. */}
+      {byTag.length > 0 && (
+        <>
+          <SectionHead title="By tag" sub="today" />
+          <Card>
+            {byTag.map(({ tag, done: d, total: t }) => (
+              <div className="row row-tight" key={tag.id}>
+                <div className="grow">
+                  <div className="row">
+                    <Tag tone={tag.tone}>{tag.label}</Tag>
+                    <span className="muted nums">{d}/{t}</span>
+                  </div>
+                  <Progress value={d} max={t || 1} />
+                </div>
+              </div>
+            ))}
+          </Card>
+        </>
+      )}
 
       <SectionHead
         title="This week"

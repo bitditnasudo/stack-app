@@ -197,7 +197,10 @@ button, input, select, textarea { font-family: inherit; }
   color: var(--on-dark);
   border: none;
 }
-.card-hero .muted, .card-hero small { color: rgb(255 255 255 / .78); }
+/* Was `rgb(255 255 255 / .78)` — the last colour literal in the kit, and it
+   was invisible until a theme made the hero card BRIGHT rather than dark. Now a
+   token, which is what the house rule said all along. */
+.card-hero .muted, .card-hero small { color: var(--on-dark-muted); }
 
 /* Tinted cards for a standing state (a goal met, a warning that isn't an error) */
 .card-ok     { background: var(--ok-wash);     border-color: var(--ok-line);     box-shadow: none; }
@@ -328,7 +331,10 @@ button, input, select, textarea { font-family: inherit; }
 .tag-brand   { background: var(--brand-wash);   color: var(--brand-deep); }
 .tag-neutral { background: var(--neutral-wash); color: var(--muted); }
 .tag-outline { background: transparent; color: var(--muted); border: 1px solid var(--border-strong); }
-.tag-on-dark { background: rgb(255 255 255 / .16); color: var(--on-dark); }
+/* A chip sitting ON a saturated card. The veil has to move the card AWAY from
+   its own lightness — a white veil on a bright card leaves the chip invisible —
+   so which direction it goes is the theme's call, not this file's. */
+.tag-on-dark { background: var(--on-dark-veil); color: var(--on-dark); }
 
 /* Toggleable chip — filters, sorts, modes. Full tap height even though it
    looks small. */
@@ -977,11 +983,18 @@ button, input, select, textarea { font-family: inherit; }
 
 .heat-none   { background: var(--neutral-wash); color: var(--muted-2); }
 .heat-future { background: transparent; border-style: dashed; color: transparent; }
-.heat-1 { background: rgb(var(--brand-rgb) / .12); color: var(--brand-deep); }
-.heat-2 { background: rgb(var(--brand-rgb) / .26); color: var(--brand-deep); }
-.heat-3 { background: rgb(var(--brand-rgb) / .42); color: var(--on-brand); }
-.heat-4 { background: rgb(var(--brand-rgb) / .60); color: var(--on-brand); }
-.heat-5 { background: rgb(var(--brand-rgb) / .80); color: var(--on-brand); }
+/* One ink for the whole ramp, named by the theme (--heat-ink).
+   This used to switch inks halfway up — --brand-deep on the pale cells,
+   --on-brand on the saturated ones. That crossover is theme-specific: it lands
+   at a different step on a dark page, and hardcoding it here meant the ramp
+   went illegible in the middle the moment the surfaces changed. The top alpha
+   also stops at .72 rather than .80, which is what lets a single ink clear AA
+   across all five steps (4.53:1 at the worst of them). */
+.heat-1 { background: rgb(var(--brand-rgb) / .12); color: var(--heat-ink); }
+.heat-2 { background: rgb(var(--brand-rgb) / .26); color: var(--heat-ink); }
+.heat-3 { background: rgb(var(--brand-rgb) / .42); color: var(--heat-ink); }
+.heat-4 { background: rgb(var(--brand-rgb) / .56); color: var(--heat-ink); }
+.heat-5 { background: rgb(var(--brand-rgb) / .72); color: var(--heat-ink); }
 .heat-perfect { background: var(--ok); border-color: var(--ok); color: var(--on-dark); }
 /* Today gets a ring rather than a fill, so "today" and "perfect" can coexist. */
 .heat-dot.is-today { outline: 2px solid var(--brand); outline-offset: 2px; }
@@ -993,3 +1006,97 @@ button, input, select, textarea { font-family: inherit; }
 .day-row.is-today .day-row-name { color: var(--brand); }
 .day-row.is-future { opacity: .5; }
 .day-row-stats { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+
+/* ── Routine editor ──────────────────────────────────────────────────────────
+   Paired with the "ROUTINE EDITOR ADDITIONS" block in components/UI.jsx. */
+
+/* Weekday toggles. Seven across at 375px leaves ~44px per cell with the sheet's
+   padding, which is exactly --tap — so the row is sized by the tap target and
+   the letters are centred in whatever that leaves, rather than the other way
+   round. */
+.day-picker { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--sp-1); }
+.day-pick {
+  min-height: var(--tap); padding: 0;
+  border: 1px solid var(--border); background: var(--surface); color: var(--brand-deep);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-display); font-size: var(--fs-sm); font-weight: 700;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+}
+.day-pick.is-active { background: var(--brand-deep); color: var(--on-brand); border-color: var(--brand-deep); }
+.day-pick:active { transform: scale(.94); }
+
+/* Tone picker. Each swatch wears the tone it selects — the label is the proof
+   that the pairing is legible, so it is never hidden. */
+.tone-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
+.tone-swatch {
+  min-height: var(--tap); border: 2px solid transparent; cursor: pointer;
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-xs); font-weight: 700; text-transform: capitalize;
+  display: flex; align-items: center; justify-content: center;
+}
+.tone-swatch.is-selected { border-color: var(--text); }
+
+/* Editable list row. The body is the edit target and takes all the slack; the
+   trailing controls keep their own tap targets, which is why this is a flex row
+   of siblings and not a button with buttons inside it. */
+.edit-row { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0; }
+.edit-row + .edit-row { border-top: 1px solid var(--border); }
+.edit-row-main {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+  min-height: var(--tap); padding: var(--sp-2) 0;
+  border: none; background: none; text-align: left; font: inherit; color: inherit;
+  cursor: pointer;
+}
+.edit-row-title {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md);
+  line-height: 1.3;
+}
+.edit-row-sub { font-size: var(--fs-sm); color: var(--muted); line-height: 1.4; }
+.edit-row-meta { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: 3px; }
+.edit-row-actions { display: flex; align-items: center; gap: var(--sp-1); flex: none; }
+/* A task that no day schedules never appears on Today. It is a legitimate
+   half-finished edit rather than an error, so it is marked, not blocked. */
+.edit-row.is-warn .edit-row-title { color: var(--warn-ink); }
+
+/* Reorder/delete arrows sit three-to-a-row beside the body, so they trade the
+   kit's 40px box for 34px. The tap target is restored with a transparent
+   outset rather than kept at 40px, which would push the row's text under 50%
+   of the width at 375px. */
+.icon-btn-sm { width: 34px; height: 34px; position: relative; }
+.icon-btn-sm::after { content: ''; position: absolute; inset: -5px; }
+.icon-btn-danger { color: var(--danger); background: var(--danger-wash); }
+
+/* Empty-block heading in the editor: a block with no tasks is shown (unlike on
+   Today, where it is omitted) because in the editor it is the thing you are
+   about to add a task to. */
+.block-empty {
+  font-size: var(--fs-sm); color: var(--muted); padding: var(--sp-3) 0;
+}
+
+/* A .list-row that is itself a button (Settings → Edit routine). The kit's row
+   is a div, so this only re-neutralises what <button> brings with it — no new
+   visual rules, so the two stay identical by construction rather than by
+   someone remembering to update both. */
+.nav-row {
+  width: 100%; font: inherit; color: inherit; text-align: left;
+  background: none; border: none; border-bottom: 1px solid var(--border);
+  cursor: pointer; min-height: var(--tap);
+}
+.nav-row:last-child { border-bottom: none; }
+
+/* An outbound link that reads as a row, not as body copy — used for the Drive
+   folder in Settings. Underlined rather than colour-only: --brand on --surface
+   clears 3:1 as a UI colour but not the 4.5:1 that body text needs, and colour
+   alone is not a link affordance anyway. */
+.link-row {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  min-height: var(--tap);
+  font-weight: 700; font-size: var(--fs-sm);
+  color: var(--brand-deep); text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.link-row svg { flex: none; opacity: .7; }
