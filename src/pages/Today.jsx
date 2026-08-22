@@ -66,16 +66,19 @@ export default function Today() {
         }
       />
 
+      {/* One row, not three. This card used to stack a "Today" label, the
+          figure, the bar and a "{done} / {total} done" line, which pushed the
+          first tappable task to y=257 — a third of a 812px phone spent before
+          the thing the app is for. The label was redundant with the date in the
+          header directly above it, and the count now sits beside the figure it
+          is a count of rather than under the bar. */}
       <Card variant="hero">
         <div className="row">
-          <div className="grow">
-            <div className="muted">Today</div>
-            <div className="figure">{pct}%</div>
-          </div>
+          <div className="figure">{pct}%</div>
+          <div className="grow hero-count">{done} / {total} done</div>
           <Tag tone={kind.tone}>{kind.text}</Tag>
         </div>
-        <Progress value={done} max={total}  />
-        <div className="muted">{done} / {total} done</div>
+        <Progress value={done} max={total} />
       </Card>
 
       {routine.blocks.map(block => {

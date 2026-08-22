@@ -284,6 +284,21 @@ unambiguous.
 reached from the sliders icon on Today (where you notice a step is missing) and
 from the top of Settings (where you go looking for it).
 
+Two density rules came out of a critique pass in v2.2, both measured:
+
+- **The editor stays SHORTER than the screen it edits.** Routine/Tasks was
+  2494px against Today's 2280px, because each row repeated the task's detail
+  line. Dropping it took the tab to 1900px. The detail says what a task *does*,
+  which is what you want on Today and noise when you are scanning fifteen rows
+  for the one to change; it is still one tap away in the sheet. Duplicate names
+  (two "LUMACA Cleanser") stay tellable apart because the block heading above
+  them is the disambiguator.
+- **A global action never renders inside tab content.** "Reset routine" used to
+  be a danger card at the foot of all four tabs, which put one destructive
+  control at four different scroll positions — y=655 on Tags, y=2215 on Tasks.
+  It is now a single icon in the PageHeader, same glyph and same corner as
+  Today's "reset the checklist".
+
 ### State model
 
 One localStorage key, `stack:v1`, holding **both** the day logs and the routine.

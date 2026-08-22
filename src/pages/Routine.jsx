@@ -74,11 +74,37 @@ export default function Routine() {
 
   return (
     <div className="main-content">
+      {/* Reset lives HERE, in the header, and not in the tab bodies.
+          It used to be a danger card rendered inside every tab, which put the
+          one destructive control on this screen at four different scroll
+          positions — y=655 on Tags, y=2215 on Tasks, i.e. 2.7 screens down.
+          A global action rendered per-tab is a global action with four homes.
+
+          Icon-only with a confirm, matching Today's "reset the checklist"
+          exactly: same glyph, same corner, same question. */}
       <PageHeader
         avatar={<ChevronLeft size={20} />}
         onAvatarClick={() => navigate(-1)}
         eyebrow="Your protocol"
         title="Routine"
+        actions={
+          <button
+            className="icon-btn icon-btn-danger"
+            aria-label="Reset routine to the starting one"
+            onClick={() => {
+              if (confirm(
+                'Replace your routine with the starting one?\n\n'
+                + 'Every task, kind of day, tag and time block goes back to what '
+                + 'STACK ships with. Your logged days are not touched.'
+              )) {
+                resetRoutine()
+                setToast('Routine reset.')
+              }
+            }}
+          >
+            <RotateCcw size={18} />
+          </button>
+        }
       />
 
       <Segmented options={TABS} value={tab} onChange={setTab} />
@@ -87,30 +113,6 @@ export default function Routine() {
       {tab === 'days'   && <DaysTab   routine={routine} setRoutine={setRoutine} onEdit={setEditing} />}
       {tab === 'tags'   && <TagsTab   routine={routine} onEdit={setEditing} />}
       {tab === 'blocks' && <BlocksTab routine={routine} setRoutine={setRoutine} onEdit={setEditing} />}
-
-      <Card variant="danger">
-        <div className="row row-tight">
-          <span className="row-icon row-icon-danger"><RotateCcw size={16} /></span>
-          <div className="grow">
-            <b>Reset to the starting routine</b>
-            <div className="muted">
-              Replaces every task, day type, tag and block with the ones STACK
-              ships. Your logged days are not touched.
-            </div>
-          </div>
-        </div>
-        <Button
-          variant="danger" block
-          onClick={() => {
-            if (confirm('Replace your routine with the starting one? Your logged days stay.')) {
-              resetRoutine()
-              setToast('Routine reset.')
-            }
-          }}
-        >
-          Reset routine
-        </Button>
-      </Card>
 
       {editing?.kind === 'task'    && <TaskSheet    routine={routine} editing={editing} onSave={save} onDelete={del} onClose={close} />}
       {editing?.kind === 'dayType' && <DayTypeSheet editing={editing} onSave={save} onDelete={del} onClose={close} />}
@@ -161,8 +163,14 @@ function TasksTab({ routine, setRoutine, onEdit }) {
                 return (
                   <EditRow
                     key={task.id}
+                    /* No `sub` here, unlike the other three tabs.
+                       The detail line ("Cleanse and pat completely dry before
+                       next step") is what the task DOES — useful on Today,
+                       useless when you are scanning fifteen rows for the one to
+                       edit, and it made this tab 2494px tall against Today's
+                       2280px: the editor was bigger than the screen it edits.
+                       It is still one tap away, in the sheet. */
                     title={task.name}
-                    sub={task.detail}
                     warn={unscheduled}
                     meta={
                       <>

@@ -1100,3 +1100,16 @@ button, input, select, textarea { font-family: inherit; }
   text-underline-offset: 3px;
 }
 .link-row svg { flex: none; opacity: .7; }
+
+/* The count beside the hero figure. It sits ON the bright hero card, so it
+   takes --on-dark-muted rather than --muted: --muted is tuned for dark
+   surfaces and would be near-invisible here. Baseline-aligned to the figure
+   rather than centred, so the two read as one line of information. */
+.hero-count {
+  align-self: flex-end;
+  padding-bottom: 4px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--on-dark-muted);
+  font-variant-numeric: tabular-nums;
+}
