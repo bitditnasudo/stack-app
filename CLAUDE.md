@@ -569,6 +569,20 @@ npm run check      # domain assertions + runtime contrast — both gates
 npm run ship       # bump the version, commit it, push — the whole ritual
 ```
 
+**Run these from `stack-vite/`, not from `STACK APP/`.** The outer folder is a
+container — it holds the retired single-file build (`index.html`, `sw.js`) and
+the dead Play Store package — and has no project in it. `npm` there fails with
+`ENOENT: no such file or directory, open '…/STACK APP/package.json'`, which is
+the single most repeated papercut on this machine, because the outer folder is
+what an editor session opens in.
+
+There is a **forwarder** at `../package.json` that makes `npm run check`, `dev`,
+`build`, `ship` and friends work from the outer folder too — each one just does
+`cd stack-vite && npm run <script>`. **It is not in version control**: the git
+repo is `stack-vite/`, not its parent, so a fresh clone will not have it and
+nothing depends on it. If it is missing, either recreate it or just `cd` first.
+Nothing in the build, the deploy or the tests reads it.
+
 `ship` exists because the obvious `npm run deploy && git push` is a trap on this
 machine: the dev shell is **Windows PowerShell 5.1, which has no `&&`** and
 fails to parse the line before running any of it. npm runs its scripts through
