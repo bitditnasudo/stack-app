@@ -39,9 +39,10 @@ const saveSyncMeta = m => { try { localStorage.setItem(SYNC_META_KEY, JSON.strin
 const EMPTY = {
   items: [],                       // day logs, id = local date key
   deleted: {},                     // id → ISO timestamp (tombstones survive a merge)
-  // STACK has no onboarding flow — it has nothing to configure before use — so
-  // the gate the template ships is satisfied from the start. Kept in the shape
-  // so a future first-run screen is a one-line change, not a refactor.
+  // DEFAULTS TRUE, and that is load-bearing. Every device that already has
+  // saved state spreads over this default and keeps `true`, so upgrading never
+  // shows the first-run flow. Only `loadLocal` finding NO saved blob at all
+  // flips it to false — see there.
   settings: { onboardingDone: true, legacyImported: false, notifyAsked: false },
   settingsUpdatedAt: null,
   profile: { name: '' },
@@ -541,7 +542,15 @@ function pruneFalse(o) {
 function loadLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { ...EMPTY, routine: defaultRoutine() }
+    // No blob at all = a genuinely fresh install: the only case that gets the
+    // first-run flow. Anything with saved state keeps onboardingDone true.
+    if (!raw) {
+      return {
+        ...EMPTY,
+        settings: { ...EMPTY.settings, onboardingDone: false },
+        routine: defaultRoutine(),
+      }
+    }
     // spread over EMPTY so a schema addition never lands as undefined
     const saved = JSON.parse(raw)
     return {

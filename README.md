@@ -3,9 +3,10 @@
 Daily skincare, supplement, health and habit tracker. One user, no server, no
 accounts. A web page on Vercel — not an installable app.
 
-The protocol is **editable in the app**: add tasks, tag them, name the kinds of
-day they run on (active days, rest days, whatever you call them) and the app
-rebuilds the checklist — and the reminders — around it.
+The routine is **built in the app**: add a habit with its time and category,
+name each day ("Gym", "Slow Sunday"), arrange the order of its steps and drop
+wait times between them. Days that are the same share one routine, so you build
+it once. The app rebuilds the day — and the reminders — around it.
 
 Built on the [Vantarco UI template](../../VANTARCO%20APP%20DATABASE/) — React 18
 + Vite 5 + react-router-dom, on the kit's **wine after dark** theme. Dark only.

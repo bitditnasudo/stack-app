@@ -20,7 +20,7 @@ import { formatLongDay } from '../lib/dates.js'
 
 export default function Overview() {
   const { routine } = useStore()
-  const { date, kind, done, total, pct, byTag, items } = useToday()
+  const { date, kind, done, total, pct, byCategory, items } = useToday()
   const week  = useMemo(() => buildWeek(items, 0, routine), [items, routine])
   const stats = useMemo(() => weekStats(week), [week])
 
@@ -43,7 +43,11 @@ export default function Overview() {
               </div>
             </div>
             <div style={{ marginTop: 'var(--sp-3)' }}>
-              <Tag tone={kind.tone}>{kind.text}</Tag>
+              {kind.color
+                ? <span className="mood" style={{ '--mood-color': kind.color }}>
+                    <span className="mood-dot" />{kind.text}
+                  </span>
+                : <Tag tone="neutral">{kind.text}</Tag>}
             </div>
           </div>
         </div>
@@ -51,15 +55,17 @@ export default function Overview() {
 
       {/* Omitted entirely when today's tasks carry no tags — an empty "By tag"
           heading reads as data that failed to load. */}
-      {byTag.length > 0 && (
+      {byCategory.length > 0 && (
         <>
-          <SectionHead title="By tag" sub="today" />
+          <SectionHead title="By category" sub="today" />
           <Card>
-            {byTag.map(({ tag, done: d, total: t }) => (
-              <div className="row row-tight" key={tag.id}>
+            {byCategory.map(({ category, done: d, total: t }) => (
+              <div className="row row-tight" key={category.id}>
                 <div className="grow">
                   <div className="row">
-                    <Tag tone={tag.tone}>{tag.label}</Tag>
+                    <span className="cat-chip" style={{ '--mood-color': category.color }}>
+                      <span className="mood-dot" />{category.label}
+                    </span>
                     <span className="muted nums">{d}/{t}</span>
                   </div>
                   <Progress value={d} max={t || 1} />

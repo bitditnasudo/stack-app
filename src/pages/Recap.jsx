@@ -92,7 +92,9 @@ export default function Recap() {
                   : day.pct === null ? 'no data'
                   : `${day.done}/${day.total}`}
               </div>
-              <Tag tone={day.kind.tone}>{day.kind.text}</Tag>
+              {day.kind.color
+                ? <span className="mood" style={{ '--mood-color': day.kind.color }}>{day.kind.text}</span>
+                : <Tag tone="neutral">{day.kind.text}</Tag>}
             </div>
           ))}
         </Card>

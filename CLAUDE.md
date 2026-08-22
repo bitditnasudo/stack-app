@@ -127,112 +127,145 @@ keep in step any more — see "Not a PWA".)
 
 ---
 
-## Domain — what the app actually models
+## Domain — what the app actually models (SCHEMA v2)
 
-**The protocol is DATA the user edits, not code.** This is the biggest change
-since the rewrite. There are two files and the split matters:
+**The protocol is DATA the user edits, not code.** Two files, and the split
+matters:
 
-- **`src/lib/routine.js`** — the schema and the engine. Every function that
-  reads or rewrites a routine, all pure. Read its header before touching the
-  model; it explains the two rules below in full.
-- **`src/lib/protocol.js`** — the *seed* only. What a fresh install starts with,
-  and what "Reset routine" restores. Editing it does not touch a routine already
-  saved on a device.
+- **`src/lib/routine.js`** — the schema and the engine, all pure. Read its
+  header before touching the model.
+- **`src/lib/protocol.js`** — the *seed* only. What a fresh install starts with
+  and what "Reset routine" restores; editing it never touches a saved routine.
 
-### The routine document
+### The document
 
 ```js
 routine = {
-  version: 1,
-  dayTypes: [{ id, name, tone, days:[jsDay] }],   // Gym, Mobility, Active, Rest, Every day
-  tags:     [{ id, label, tone }],                // Skincare, Supplements, Health, Habits
-  blocks:   [{ id, label, start, end, remind }],  // headings AND the reminder times
-  tasks:    [{ id, name, detail, block, tags[], dayTypes[], days[], target, warn, wait }],
+  version: 2,
+  categories: [{ id, label, color }],    // workout · supplement · skincare · leisure
+  habits:     [{ id, name, detail, time, categoryId, remind, warn }],
+  templates:  [{ id, title, color, steps: [Step] }],
+  week:       [t0 … t6],                 // weekday → template id (or null)
 }
+
+Step = { id, kind:'habit', habitId } | { id, kind:'wait', minutes, note }
 ```
 
-Stored in the same localStorage blob as the day logs (`state.routine`, stamped
-`routineUpdatedAt`), so one export backs up the checklist and the history
-together.
+### Three ideas, deliberately separate
 
-### Two rules that are load-bearing
+1. **A HABIT is a thing you do** — name, category, and the time of day it
+   belongs at. It knows nothing about which days it runs. That is what makes it
+   reusable: "Creatine" is one habit whether it appears on three days or seven.
+   **It does not store its days** — `habitDays()` derives them from the week.
+   Storing them would duplicate the templates and drift.
 
-**1. Day types OVERLAP. They are not an enum.** A weekday belongs to as many as
-match it. This is the old `active` / `workout` flag pair generalised, and it
-exists for one reason:
+2. **A TEMPLATE is a named day** — a mood, a colour, and an ORDERED list of
+   steps. **Waits are steps in that list**, not a field on the habit before the
+   gap. v1 modelled a wait as text on the preceding task, which meant it could
+   never sit between two habits without belonging to one of them.
 
-```
-Sunday is ACTIVE and has NO WORKOUT.
-```
+3. **THE WEEK is seven slots**, each pointing at a template. Mon/Wed/Fri sharing
+   one "Gym" is the entire reason templates exist — build once, edit once. Two
+   days that must differ need two templates. **There are no per-day overrides**;
+   that was considered and rejected as the place this kind of model gets
+   confusing.
 
-Collapsing day types into a single "what kind of day is it" field makes Sunday
-unrepresentable. The old code carried a comment warning about this; the schema
-now makes it structurally impossible instead. A task's days are the **union** of
-its day types' days plus its own explicit `days` list.
+### What v1 was, and the rule that did NOT survive
 
-**2. Task ids are still a storage contract.** Completion persists as
-`{ [taskId]: true }` per day, going back to the GitHub Pages build. The seed
-reproduces the original fifteen ids exactly, and `verify.mjs` asserts the set.
-New tasks get minted ids from `newId()`. **Never rename or reuse one.** Deleting
-a task deliberately leaves its past ticks alone — a day log stores its own
-`total`, so old percentages stay correct.
+v1 scheduled by **overlapping day types** — a task named "active" and "gym", and
+a weekday matched as many as applied. That existed to express *Sunday is active
+but has no workout*: two independent flags that could not be collapsed into one
+enum, and the single most bug-prone thing in the file.
 
-### The week the seed encodes
+**v2 has no flags to collapse.** A Sunday is just a template whose steps are the
+ones Sunday has. The constraint is gone rather than solved — so the old warning
+about never deriving one flag from the other no longer applies to anything.
 
-| Day | What happens |
-|---|---|
-| Mon / Wed / Fri | Gym — full-body hypertrophy. Full actives, full supplements. **15 tasks** |
-| Sat | Mobility / stretch, 45 min. Full actives, Ablazor + post-workout. **15 tasks** |
-| Sun | Active skincare. **No workout, no supplements beyond Tadalafil.** **12 tasks** |
-| Tue / Thu | Rest. Barrier-only skincare, flexible supplement timing. **8 tasks** |
+### THE CONTRACT THAT DID SURVIVE — habit ids
+
+Completion persists as `{ [habitId]: true }` per day, going back to the GitHub
+Pages build. **`habit.id` is the same string `task.id` was.** The seed
+reproduces the original fifteen exactly and `migrateV1()` carries every id
+across unchanged. `verify.mjs` asserts both, and asserts that no id referenced by
+history fails to resolve. **Never rename or reuse one.**
+
+### The v1 → v2 migration
+
+Lives at the bottom of `routine.js`. v1 scheduled by overlapping day types, v2 by
+one template per weekday, so it works forward from the only thing both agree on:
+**what each of the seven weekdays actually contained.** It replays v1's rules per
+weekday, then folds weekdays with identical step lists into one shared template —
+which is exactly how Mon/Wed/Fri arrive as a single "Gym" rather than three
+copies. Templates take their name from the v1 day type that best described the
+day, so the week still reads familiar.
+
+v1's free-text `wait` ("Wait 5–10 min before next step") becomes a real wait step
+after its habit, with the first integer in the string as its length.
+
+Verified against a real v1 blob with logged history: **zero orphaned ids, day
+totals untouched, Mon/Wed/Fri folded, waits converted.**
 
 ### Derived, not hand-maintained
 
-- **The day badge** is the first day type matching today, so the ORDER of
-  `dayTypes` is priority order (Gym above Active is why a Monday reads GYM). A
-  type covering all seven days is never a badge — it says nothing about *this*
-  day.
-- **Reminders** come from `notifScheduleFor()`: each block fires `remind`
-  minutes before `start`, on exactly the days it has tasks, reading out those
-  tasks. The old build kept a second literal `NOTIF_SCHEDULE` beside the
-  protocol, so adding a step meant remembering to edit both — and forgetting was
-  invisible until a reminder announced a stale list. **Do not reintroduce a
-  hand-kept reminder list.**
-- **The Overview split** is one bar per tag with a task today. It used to be a
-  hardcoded supplements-vs-skincare pair.
+- **The day badge** is simply the template's title and colour.
+- **Reminders** come from `notifScheduleFor()` — each habit with a time and a
+  `remind` fires that many minutes before, on exactly the weekdays its templates
+  cover. **Habits sharing a fire time merge into ONE notification**: three
+  separate buzzes at 06:20 is three chances to dismiss the whole morning. Do not
+  reintroduce a hand-kept reminder list.
+- **The Overview split** is one bar per category with a step today.
+- **Waits are not achievements.** A day's steps include them; its SCORE counts
+  only habit steps. Folding waits into the denominator would make a day with
+  four gaps score lower than the same day with none.
 
-### Things a routine edit must not break
+### Things an edit must not break — all asserted
 
-`normaliseRoutine()` is the one place a routine is made sound, and everything
-downstream assumes it ran. It runs on **every load**, not just on import,
-because the blob is hand-editable in devtools and survives across versions.
-Deleting things is where the sharp edges are, and all three are asserted:
+`normaliseRoutine()` is the one place a routine is made sound and it runs on
+**every load**, not just on import.
 
-- deleting a **day type** strips it from every task that named it (the task is
-  then flagged *unscheduled* in the editor, not silently run every day);
-- deleting a **block** re-homes its tasks into the first surviving block rather
-  than deleting them, and the last block cannot be deleted;
-- deleting a **tag** strips it from tasks.
+- deleting a **habit** pulls it out of every template that used it;
+- deleting a **category** re-homes its habits onto the first survivor; the last
+  category cannot be deleted;
+- deleting a **template** frees the weekdays that ran it — those days read
+  "OPEN", which is not an error;
+- **step ids are unique PER TEMPLATE, not globally.** This one bit hard: the
+  seed used `s_<habitId>`, so the same habit in Gym/Active/Rest collided, and a
+  global dedupe in `normaliseRoutine` silently deleted 12 of Active's 17 steps
+  on load. A step is addressed as (template, step); scope the dedupe that way.
 
 ### Domain facts worth not re-deriving
 
 - **Ablazor** is Peptan® collagen. Pre-workout timing is the clinically
   meaningful one — it primes connective-tissue synthesis. Don't "simplify" it to
   post-workout alongside the whey.
-- **Creatine** needs daily consistency, not precise timing. It's grouped
-  post-workout for convenience, not physiology.
+- **Creatine** needs daily consistency, not precise timing.
 - **Whey** is a dietary tool for hitting 1.6–2.2 g/kg, not a mandatory ritual.
 - **Retinol and Vitamin C are never layered.** Vitamin C is morning-only,
-  retinol is evening-only. The 10–15 min bone-dry wait before retinol now lives
-  **on the retinol task**, not on the evening HA: a task's fields no longer
-  branch on the day, and hung off the HA the instruction appeared on rest nights
-  where nothing follows it.
-- Gym is 19:30, 60–90 min. Bed at 23:00. Every clock target derives from those.
+  retinol evening-only, and the 10–15 min bone-dry gap before retinol is now a
+  real wait step in the sequence rather than a note on the step before it.
+- Gym is 19:30, 60–90 min. Bed at 23:00.
 - Training is **spine-safe**: no free-weight deadlifts, no barbell rows, no
-  high-shear lumbar work. Relevant if a workout logger is ever added.
-- Planned addition: **NutraBio Growth Peptides** — post-workout on training
-  days, consistent time on rest days. **This is now a job for the in-app editor,
-  not a code change.**
+  high-shear lumbar work.
+
+---
+
+## First run
+
+`/welcome`, three screens: what STACK is → connect Google Drive → build your
+week (start from the example week, start empty, or skip straight in).
+
+**`settings.onboardingDone` DEFAULTS TRUE.** That is what stops every existing
+device seeing the flow on upgrade — saved state spreads over the default and
+keeps `true`. Only `loadLocal` finding *no saved blob at all* flips it false, so
+the gate is invisible to anyone already using the app.
+
+**Sign-in is prominent but skippable, deliberately.** A failed OAuth, a wrong
+Google account or no signal would otherwise make the app unusable, and STACK
+works completely offline. `OnboardingGate` in `App.jsx` never blocks
+`/auth/callback` — the OAuth round trip happens mid-onboarding and bouncing it
+back would drop the token before it was stored.
+
+---
 
 ## Architecture
 
@@ -240,29 +273,34 @@ Deleting things is where the sharp edges are, and all three are asserted:
 src/
   theme.css              tokens — the WINE AFTER DARK set + 3 reference themes
   index.css              the kit + marked "STACK ADDITIONS" blocks at the end
-  app.config.jsx         name, STORAGE_KEY, the 4 nav items, brand mark, build stamp
-  App.jsx                provider → router → shell → routes
-  main.jsx               entry; service worker registration; LOCK_PINCH_ZOOM=false
+  app.config.jsx         name, STORAGE_KEY, nav items, brand mark, build stamp
+  App.jsx                provider → router → onboarding gate → shell → routes
+  main.jsx               entry; service worker registration
   components/
-    AppShell.jsx         nav (pill bar ⇄ sidebar) + PageHeader — template, unchanged
-    UI.jsx               the kit + STACK additions: TaskRow Ring Heatmap, plus
-                         DayPicker TonePicker EditRow for the editor
+    AppShell.jsx         nav (pill bar ⇄ sidebar) + PageHeader — template
+    UI.jsx               the kit + STACK: StepCard WaitCard Ring Heatmap,
+                         DayPicker ColorPicker EditRow
     Signature.jsx        footer mark — template, unchanged
   lib/
-    routine.js           ★ THE ENGINE — schema, scheduling, reminders, validation
-    protocol.js          the SEED routine only (what a fresh install starts with)
+    routine.js           ★ THE ENGINE — v2 schema, sequencing, reminders,
+                         validation, and the v1→v2 migration
+    protocol.js          the SEED routine, plus blankRoutine() for first run
+    colorUtils.js        readable ink on a runtime colour (category fills)
     dates.js             local date keys, Monday-first weeks. Never UTC
     weeks.js             day logs → a week + its stats
-    store.jsx            state, persistence, legacy import, backup, useTodayKey
-    notifications.js     permission + in-page scheduling (schedule is passed IN)
-    useToday.js          the one derivation of "today's list and today's score"
+    store.jsx            state, persistence, Drive sync, backup, useTodayKey
+    googleDrive.js       OAuth + Drive file (ported from the Plant Tracker)
+    notifications.js     permission + in-page scheduling (schedule passed IN)
+    useToday.js          the one derivation of today's sequence and score
   pages/
-    Today.jsx            the checklist
-    Overview.jsx         ring, by-tag split, this week
+    Onboarding.jsx       ★ first run — welcome, Drive, build your week
+    Today.jsx            the day as a flat coloured sequence
+    Overview.jsx         ring, by-category split, this week
     Recap.jsx            any week, navigable backwards
-    Routine.jsx          ★ the editor — Tasks / Days / Tags / Blocks
-    Settings.jsx         routine link, reminders, backup/restore, erase, build stamp
-verify.mjs               domain + engine assertions — `node verify.mjs`
+    Routine.jsx          ★ the editor — Week / Habits / Categories
+    Settings.jsx         routine link, reminders, Drive, backup, erase, stamp
+    AuthCallback.jsx     where Google drops the token
+verify.mjs               100 domain + engine + migration assertions
 ```
 
 ### Navigation is four tabs, and four is the ceiling
@@ -277,8 +315,9 @@ There is **no FAB** — but the reason changed. STACK *gained* a create verb whe
 the protocol became editable; it just belongs to one screen rather than to the
 shell. A global "+" on the checklist would sit beside fifteen things that are
 ticked, not created, and its meaning would change from tab to tab. `Routine`
-carries its own add buttons, one per section, where what is being added is
-unambiguous.
+carries its own add buttons, in the section the thing belongs to — including
+the two inside a day, "Step" and "Wait", which is where you are when you want
+them.
 
 **`/routine` is a sub-page, not a fifth tab** — the bar is full at four. It is
 reached from the sliders icon on Today (where you notice a step is missing) and

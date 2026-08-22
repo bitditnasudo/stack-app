@@ -7,7 +7,8 @@
    ========================================================================== */
 
 import { useEffect, useRef } from 'react'
-import { X, ChevronUp, ChevronDown, Trash2 } from 'lucide-react'
+import { X, ChevronUp, ChevronDown, Trash2, Hourglass, Check, Clock } from 'lucide-react'
+import { getContrastText } from '../lib/colorUtils.js'
 
 /* ── Surfaces ────────────────────────────────────────────────────────────── */
 
@@ -220,8 +221,11 @@ export function Steps({ count, current }) {
    Audited 2026-08-12 against the kit and against the other apps in the family.
    Everything below stays here, for a stated reason:
 
-   · <TaskRow>  — structurally unlike .list-row (a leading toggle, a stacked
-                  body, a wrapping meta row). Domain, not drift.
+   · <StepCard> — structurally unlike .list-row (a leading toggle, a stacked
+                  body, a wrapping meta row, and a runtime fill colour). Domain,
+                  not drift. Replaced <TaskRow> when a step gained a category
+                  colour and the day became a sequence rather than a list.
+   · <WaitCard> — a gap in that sequence. Nothing else in the family has one.
    · <Ring>     — a single-value progress meter. Budget's CategoryRing is a
                   multi-arc distribution donut with SVG text and runtime colours;
                   it would not consume this, and no third app draws an arc at
@@ -234,37 +238,6 @@ export function Steps({ count, current }) {
    step, so it was deleted and its call sites moved to <Tag> — see the tag block
    in index.css.
    ========================================================================== */
-
-/**
- * One checklist line. The whole row is the hit target — the ring alone is far
- * under 44px, and the original app's row-level onclick is the behaviour that
- * makes this usable one-handed at 6:30am.
- *
- * Rendered as a real <button> so it is keyboard-reachable and announces its
- * pressed state; the original was a <div> with an onclick and neither.
- */
-export function TaskRow({ done, name, detail, children, onToggle }) {
-  return (
-    <button
-      type="button"
-      className={`task-row${done ? ' is-done' : ''}`}
-      aria-pressed={done}
-      onClick={onToggle}
-    >
-      <span className="task-ring" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.6"
-                strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-      <span className="task-body">
-        <span className="task-name">{name}</span>
-        {detail && <span className="task-detail">{detail}</span>}
-        {children && <span className="task-meta">{children}</span>}
-      </span>
-    </button>
-  )
-}
 
 /**
  * Completion ring. Sized in CSS, drawn on a fixed 100-unit viewBox and scaled —
@@ -425,6 +398,102 @@ export function EditRow({ title, sub, meta, warn, onEdit, onUp, onDown, onDelete
           </button>
         )}
       </div>
+    </div>
+  )
+}
+
+/* ============================================================================
+   STEP CARDS — the v2 checklist, in colour.
+   ============================================================================
+   A day is a SEQUENCE of steps, and a step is either a habit or a wait. Two
+   components, because they are not the same kind of object: one is a thing you
+   do and can tick, the other is time passing and cannot.
+
+   THE COLOUR IS RUNTIME DATA, NOT A TOKEN. A category's colour is chosen by the
+   user, so it cannot come from theme.css — the same exception the kit already
+   makes for Budget's account colours. It is handed to CSS as a custom property
+   rather than as an inline `background`, so every actual rule still lives in
+   index.css and the house rule survives: `style` here only ever carries values,
+   never declarations.
+
+   `getContrastText` picks the ink, so a colour added to PALETTE later is
+   readable without anyone re-measuring by hand.
+   ========================================================================== */
+
+/**
+ * One habit in the day's sequence.
+ *
+ * Done steps DRAIN back to the plain surface rather than staying saturated:
+ * with fifteen coloured cards the colour stops meaning anything, and this way
+ * the remaining colour IS the remaining work — the list visibly empties as the
+ * day goes. That was a deliberate choice over "colour everything always".
+ *
+ * A real <button> with aria-pressed, like the row it replaces: the original was
+ * a <div onclick>, keyboard-unreachable and stateless to a screen reader.
+ */
+export function StepCard({ done, name, detail, time, category, warn, onToggle }) {
+  const fill = category?.color || '#888888'
+  return (
+    <button
+      type="button"
+      className={`step-card${done ? ' is-done' : ''}`}
+      aria-pressed={done}
+      onClick={onToggle}
+      style={{ '--step-fill': fill, '--step-ink': getContrastText(fill, '#141414', '#FFFFFF') }}
+    >
+      <span className="step-check" aria-hidden="true">
+        {done && <Check size={16} strokeWidth={3} />}
+      </span>
+      <span className="step-body">
+        <span className="step-name">{name}</span>
+        {detail && <span className="step-detail">{detail}</span>}
+        <span className="step-meta">
+          {time && <span className="step-chip"><Clock size={11} />{time}</span>}
+          {category && <span className="step-chip">{category.label}</span>}
+        </span>
+        {warn && <span className="step-warn">{warn}</span>}
+      </span>
+    </button>
+  )
+}
+
+/**
+ * A gap in the sequence. Not a button, not tickable, and deliberately quiet —
+ * it is the one row on the screen that asks nothing of you.
+ *
+ * It exists as a first-class step because a wait occupies real time between two
+ * real things. v1 modelled it as a text field on the habit before the gap,
+ * which meant it could never sit between two habits without belonging to one.
+ */
+export function WaitCard({ minutes, note, label }) {
+  return (
+    <div className="wait-card" role="separator" aria-label={`Wait ${label}${note ? `. ${note}` : ''}`}>
+      <span className="wait-rail" aria-hidden="true" />
+      <span className="wait-body">
+        <Hourglass size={13} aria-hidden="true" />
+        <b>{label}</b>
+        {note && <span className="wait-note">{note}</span>}
+      </span>
+      <span className="wait-rail" aria-hidden="true" />
+    </div>
+  )
+}
+
+/** Swatch grid over a fixed palette — categories and day moods pick from it. */
+export function ColorPicker({ value, onChange, palette }) {
+  return (
+    <div className="swatches" role="group">
+      {palette.map(c => (
+        <button
+          key={c}
+          type="button"
+          className={`swatch${c === value ? ' is-selected' : ''}`}
+          style={{ background: c }}
+          aria-label={`Colour ${c}`}
+          aria-pressed={c === value}
+          onClick={() => onChange(c)}
+        />
+      ))}
     </div>
   )
 }

@@ -48,13 +48,14 @@ export default function Settings() {
   const [toast, setToast] = useState(null)
   const [error, setError] = useState(null)
 
-  /* Derived from the routine's blocks. There is no hand-kept reminder list any
-     more — that is what stopped the old build announcing a stale checklist. */
+  /* Derived from the habits' own times. There is no hand-kept reminder list any
+     more — that is what stopped the old build announcing a stale checklist —
+     and habits sharing a fire time merge into a single notification. */
   const schedule = useMemo(() => notifScheduleFor(routine), [routine])
 
   // Re-arm on mount, whenever the tab comes back, AND whenever the schedule
   // changes: a phone that slept through a fire time has dropped its timer and
-  // only a focus event tells us, while editing a block time invalidates every
+  // only a focus event tells us, while editing a habit's time invalidates every
   // timer already armed.
   useEffect(() => {
     const sync = () => { setPerm(notificationPermission()); setArmed(scheduleToday(schedule)) }
@@ -116,8 +117,9 @@ export default function Settings() {
           <span className="grow">
             <b>Edit routine</b>
             <small>
-              {routine.tasks.length} task{routine.tasks.length === 1 ? '' : 's'} ·{' '}
-              {routine.dayTypes.length} kinds of day · {routine.tags.length} tags
+              {routine.habits.length} habit{routine.habits.length === 1 ? '' : 's'} ·{' '}
+              {routine.templates.length} day{routine.templates.length === 1 ? '' : 's'} ·{' '}
+              {routine.categories.length} categories
             </small>
           </span>
           <ChevronRight size={18} />
@@ -137,7 +139,7 @@ export default function Settings() {
               {!supportsNotifications() ? 'This browser does not support notifications.'
                 : perm === 'granted' ? `${armed.length} armed for the rest of today.`
                 : perm === 'denied'  ? 'Blocked. Re-allow in your browser’s site settings.'
-                : 'Off — a nudge 10 minutes before each block.'}
+                : 'Off — a nudge before the habits you set a time on.'}
             </div>
           </div>
           {perm === 'granted'
@@ -161,8 +163,8 @@ export default function Settings() {
       <Card>
         {schedule.length === 0 ? (
           <div className="muted">
-            No reminders yet — give a time block a start time and a reminder
-            under <b>Edit routine</b> and it will show up here.
+            No reminders yet — give a habit a time and a reminder under
+            <b>Edit routine</b> and it will show up here.
           </div>
         ) : schedule.map(n => (
           <div className="list-row" key={n.id}>

@@ -1,148 +1,183 @@
 /* ============================================================================
-   ROUTINE — the engine. Pure functions over a routine document.
+   ROUTINE — the engine. Pure functions over a routine document. SCHEMA v2.
    ============================================================================
-   STACK used to hardcode the protocol in `buildTasks()`. It is now DATA the
-   user edits, stored alongside the day logs, and this file is everything that
-   reads or rewrites that data. `protocol.js` holds only the seed.
+   v1 modelled the protocol the way the ORIGINAL protocol happened to be shaped:
+   tasks lived in fixed time blocks, and overlapping "day types" decided which
+   days each one ran. That worked for one specific skincare-and-supplements
+   week and fought everything else. v2 drops it.
 
    THE DOCUMENT
 
-     routine = { version, dayTypes[], tags[], blocks[], tasks[] }
+     routine = {
+       version: 2,
+       categories: [{ id, label, color }],    what KIND of thing a habit is
+       habits:     [{ id, name, detail, time, categoryId, remind, warn }],
+       templates:  [{ id, title, color, steps: [Step] }],
+       week:       [t0 … t6],                 weekday → template id (or null)
+     }
 
-   DAY TYPES ARE OVERLAPPING LABELS, NOT AN ENUM.
-   A weekday belongs to as many day types as match it. This is load-bearing:
-   the original protocol had two INDEPENDENT flags — "active" (retinoid /
-   vitamin C nights: Sun Mon Wed Fri Sat) and "workout" (Mon Wed Fri Sat) — and
-   Sunday is active with no workout. Collapsing day types into one exclusive
-   "what kind of day is it" field would make Sunday unrepresentable. It was the
-   most bug-prone corner of the old file, and the schema now prevents the bug
-   rather than warning about it.
+     Step = { id, kind: 'habit', habitId }
+          | { id, kind: 'wait',  minutes, note }
 
-   A TASK'S DAYS ARE A UNION:
-     union( days of every dayType it names , its own explicit `days` )
-   Day types cover the normal case ("every active day"); the explicit list is
-   the escape hatch for a one-off pairing that deserves no name.
+   THE THREE IDEAS, AND WHY THEY ARE SEPARATE
+
+   1. A HABIT is a thing you do — a name, a category, and the time of day it
+      belongs at. It knows nothing about which days it happens on. That is what
+      makes it reusable: "Creatine" is one habit whether it appears on three
+      days or seven.
+
+   2. A TEMPLATE is a named day — a mood ("Gym day", "Slow Sunday"), a colour,
+      and an ORDERED list of steps. The order is the point: it is the sequence
+      you actually move through, and WAITS ARE STEPS IN IT rather than a note
+      attached to the habit before them. A wait is a real thing that occupies
+      real time, and modelling it as a field meant it could never sit between
+      two habits without belonging to one of them.
+
+   3. THE WEEK is seven slots, each pointing at a template. Mon/Wed/Fri sharing
+      one "Gym day" is the whole reason templates exist — configure once, edit
+      once. Two weekdays that need to differ need two templates; that is the
+      deliberate cost of not having per-day overrides.
+
+   WHAT THIS REPLACED, AND THE ONE RULE THAT SURVIVED
+   v1's overlapping day types existed to express "Sunday is active but has no
+   workout" — two independent flags that could not be collapsed into one enum.
+   v2 has no flags to collapse: a Sunday is simply a template whose steps are
+   the ones Sunday has. The constraint is gone rather than solved.
 
    TASK IDS ARE STILL A STORAGE CONTRACT. Completion persists as
-   `{ [taskId]: true }` per day, so a renamed id silently orphans history —
-   including the history imported from the old GitHub Pages build. `newId()`
-   mints ids that are unique for all time; nothing here ever rewrites one, and
-   deleting a task deliberately leaves its past ticks in place (a day log also
-   stores its own `total`, so old percentages stay correct).
+   `{ [habitId]: true }` per day, going back to the GitHub Pages build. The v1
+   migration carries every task id across UNCHANGED — `habit.id` is the same
+   string `task.id` was — so history keeps lining up. Never rename or reuse one.
    ========================================================================== */
 
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6]
 
-/** Monday-first, for every day picker in the UI — the week starts Monday here
- *  exactly as it does in the recap grid. */
+/** Monday-first, for every day picker in the UI. */
 export const DAY_ORDER  = [1, 2, 3, 4, 5, 6, 0]
 export const DAY_SHORT  = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 export const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday',
                            'Thursday', 'Friday', 'Saturday']
 
-/** The kit's semantic tones. Never a colour name — see the house rules. */
-export const TONES = ['brand', 'info', 'ok', 'warn', 'danger', 'neutral']
+/* ── Colour ──────────────────────────────────────────────────────────────────
+   Categories and templates carry a LITERAL hex, not one of the kit's semantic
+   tones. That is a deliberate exception to "semantic names, never colour
+   names", and it is the same exception the kit already makes for Budget's
+   account colours: a category's colour means nothing — it is identity, chosen
+   by the user, with no status to encode. `colorUtils.getContrastText` picks the
+   ink, so any colour added here stays readable without a second measurement.
 
-/* ── Ids ────────────────────────────────────────────────────────────────────
-   Prefixed so a stray id in a backup is still readable, and built from the
-   clock plus randomness so two devices editing offline cannot collide. */
+   Chosen bright, because they are solid fills on a near-black page. */
+export const PALETTE = [
+  '#C5DE6B', // lime
+  '#F5C542', // amber
+  '#FF7A5C', // coral
+  '#7FD1E8', // sky
+  '#C89BFF', // violet
+  '#5FD9A6', // mint
+  '#FF9ECF', // pink
+  '#FFB067', // tangerine
+]
+
+/* ── Ids ─────────────────────────────────────────────────────────────────── */
 let idCounter = 0
 export function newId(prefix = 'x') {
   idCounter = (idCounter + 1) % 4096
-  const t = Date.now().toString(36)
-  const r = Math.random().toString(36).slice(2, 6)
-  return `${prefix}_${t}${r}${idCounter.toString(36)}`
+  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}${idCounter.toString(36)}`
 }
 
 /* ── Reading ─────────────────────────────────────────────────────────────── */
 
 const byId = (list, id) => list.find(x => x.id === id) || null
 
-export const getBlock   = (routine, id) => byId(routine.blocks, id)
-export const getTag     = (routine, id) => byId(routine.tags, id)
-export const getDayType = (routine, id) => byId(routine.dayTypes, id)
+export const getHabit    = (r, id) => byId(r.habits, id)
+export const getCategory = (r, id) => byId(r.categories, id)
+export const getTemplate = (r, id) => byId(r.templates, id)
 
-/** Every weekday a task occurs on, as a sorted array of JS day indices. */
-export function taskDays(routine, task) {
-  const set = new Set(task.days || [])
-  for (const id of task.dayTypes || []) {
-    const dt = getDayType(routine, id)
-    if (dt) for (const d of dt.days) set.add(d)
-  }
-  return [...set].sort()
+/** The template a given weekday runs, or null for a day left unconfigured. */
+export function templateForDay(routine, jsDay) {
+  const id = routine.week?.[jsDay]
+  return id ? getTemplate(routine, id) : null
 }
 
-export function taskRunsOn(routine, task, jsDay) {
-  if ((task.days || []).includes(jsDay)) return true
-  return (task.dayTypes || []).some(id => getDayType(routine, id)?.days.includes(jsDay))
-}
-
-/** A task nobody scheduled. Not an error — a half-finished edit — but the
- *  editor has to say so, because it silently never appears on Today. */
-export function isUnscheduled(routine, task) {
-  return taskDays(routine, task).length === 0
+/** Which weekdays run a given template. */
+export function daysForTemplate(routine, templateId) {
+  return ALL_DAYS.filter(d => routine.week[d] === templateId)
 }
 
 /**
- * The day's checklist, in screen order: blocks in `blocks` order, tasks in
- * `tasks` order within each block. A task whose block was deleted out from
- * under it sorts to the end rather than disappearing.
- */
-export function tasksForDay(routine, jsDay) {
-  const due = routine.tasks.filter(t => taskRunsOn(routine, t, jsDay))
-  const rank = new Map(routine.blocks.map((b, i) => [b.id, i]))
-  return due
-    .map((t, i) => ({ t, b: rank.has(t.block) ? rank.get(t.block) : Infinity, i }))
-    .sort((a, b) => (a.b - b.b) || (a.i - b.i))
-    .map(x => x.t)
-}
-
-export function tasksForDate(routine, d = new Date()) {
-  return tasksForDay(routine, d.getDay())
-}
-
-/**
- * Which named day types apply today.
+ * A day's steps, resolved: every step carries the habit and category it points
+ * at, so a screen never has to look them up itself.
  *
- * A type covering all seven days is excluded: "Every day" is true of every day,
- * so as a badge it says nothing about *this* one. It still schedules tasks
- * perfectly well — it is only hidden from the label.
+ * A habit step whose habit was deleted is DROPPED rather than rendered blank —
+ * `removeHabit` already cleans templates, so a dangling reference means the
+ * document was hand-edited, and a phantom row is worse than a missing one.
  */
-export function dayTypesForDay(routine, jsDay) {
-  return routine.dayTypes.filter(dt => dt.days.length < 7 && dt.days.includes(jsDay))
+export function stepsForDay(routine, jsDay) {
+  const tpl = templateForDay(routine, jsDay)
+  if (!tpl) return []
+  return resolveSteps(routine, tpl)
 }
 
-/**
- * The day's badge and title. `text` is the chip, `label` the page title.
- * The first matching type wins the chip, so the ORDER of `dayTypes` is the
- * priority order — moving "Gym" above "Active" is how a Monday reads GYM
- * rather than ACTIVE. The editor says so next to the reorder controls.
- */
-export function dayKindFor(routine, jsDay) {
-  const types = dayTypesForDay(routine, jsDay)
-  if (!types.length) return { text: 'DAY', tone: 'neutral', label: 'Today', types }
-  return {
-    text:  types[0].name.toUpperCase(),
-    tone:  types[0].tone || 'neutral',
-    label: types.map(t => t.name).join(' · '),
-    types,
+export function resolveSteps(routine, template) {
+  const out = []
+  for (const step of template.steps || []) {
+    if (step.kind === 'wait') { out.push({ ...step }); continue }
+    const habit = getHabit(routine, step.habitId)
+    if (!habit) continue
+    out.push({ ...step, habit, category: getCategory(routine, habit.categoryId) })
   }
+  return out
 }
 
-/** Today's tasks bucketed by tag, for the Overview breakdown. A tag with no
- *  task today is omitted — an empty "Habits 0/0" bar reads as a failure. */
-export function tasksByTag(routine, tasks, checked = {}) {
-  return routine.tags
-    .map(tag => {
-      const mine = tasks.filter(t => (t.tags || []).includes(tag.id))
-      return { tag, total: mine.length, done: mine.filter(t => checked[t.id]).length }
+/** Just the tickable steps — waits are not achievements. */
+export function habitStepsForDay(routine, jsDay) {
+  return stepsForDay(routine, jsDay).filter(s => s.kind === 'habit')
+}
+
+/** The weekdays a habit actually runs on, derived from the week map. Never
+ *  stored on the habit: storing it would duplicate the templates and drift. */
+export function habitDays(routine, habitId) {
+  return ALL_DAYS.filter(d => {
+    const tpl = templateForDay(routine, d)
+    return !!tpl?.steps?.some(s => s.kind === 'habit' && s.habitId === habitId)
+  })
+}
+
+/** Every template that contains a habit. */
+export function templatesWithHabit(routine, habitId) {
+  return routine.templates.filter(t => t.steps.some(s => s.kind === 'habit' && s.habitId === habitId))
+}
+
+/** A habit no template uses. Not an error — it is a habit you have not put in
+ *  a day yet — but the editor has to say so, or it silently never appears. */
+export function isUnusedHabit(routine, habitId) {
+  return templatesWithHabit(routine, habitId).length === 0
+}
+
+/** The day's badge and title, from its template. */
+export function dayKindFor(routine, jsDay) {
+  const tpl = templateForDay(routine, jsDay)
+  if (!tpl) return { text: 'OPEN', label: 'Nothing planned', color: null, template: null }
+  return { text: tpl.title.toUpperCase(), label: tpl.title, color: tpl.color, template: tpl }
+}
+
+/** Today's habit steps bucketed by category, for the Overview breakdown. */
+export function stepsByCategory(routine, steps, checked = {}) {
+  const habits = steps.filter(s => s.kind === 'habit')
+  return routine.categories
+    .map(cat => {
+      const mine = habits.filter(s => s.habit.categoryId === cat.id)
+      return { category: cat, total: mine.length, done: mine.filter(s => checked[s.habitId]).length }
     })
     .filter(x => x.total > 0)
 }
 
-/* ── Time ────────────────────────────────────────────────────────────────────
-   Block times are stored as 24h "HH:MM" strings and rendered through the
-   locale: the data is unambiguous, the display is the user's. */
+/** Total minutes a day's waits ask you to stand around for. */
+export function totalWaitMinutes(steps) {
+  return steps.filter(s => s.kind === 'wait').reduce((n, s) => n + (s.minutes || 0), 0)
+}
+
+/* ── Time ────────────────────────────────────────────────────────────────── */
 
 export function parseTime(hhmm) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || '')
@@ -160,251 +195,390 @@ export function formatTime(hhmm) {
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 }
 
-/**
- * "6:30 – 7:00 AM" — the day period is dropped from the start when both ends
- * share it, which is how the original read and how people write a range.
- *
- * The period is found with `formatToParts`, NOT by matching /AM|PM/ on the
- * formatted string. That regex was the first version and it silently did
- * nothing on this phone: the browser's locale renders "6:30 a.m.", which the
- * pattern misses, so every block heading read "6:30 a.m. – 7:00 a.m." Asking
- * Intl which characters are the day period works in every locale, and in a
- * 24-hour one there is no such part, so the range is simply left alone.
- */
-export function formatTimeRange(start, end) {
-  const a = parseTime(start)
-  const b = parseTime(end)
-  if (!a) return ''
-  if (!b) return formatTime(start)
-
-  const sa = formatTime(start)
-  const sb = formatTime(end)
-  const pa = dayPeriodOf(a)
-  const pb = dayPeriodOf(b)
-
-  // `replace` rather than a trailing trim: plenty of locales put the period
-  // FIRST (zh-CN renders "上午6:30"), so its position can't be assumed.
-  if (pa && pb && pa === pb) return `${sa.replace(pa, '').trim()} – ${sb}`
-  return `${sa} – ${sb}`
+/** "45 min", "1 h", "1 h 30". Waits are read at a glance, not parsed. */
+export function formatWait(minutes) {
+  const m = Math.max(0, Math.round(minutes || 0))
+  if (m < 60) return `${m} min`
+  const h = Math.floor(m / 60)
+  const rest = m % 60
+  return rest ? `${h} h ${rest}` : `${h} h`
 }
 
-function dayPeriodOf({ hour, min }) {
-  const d = new Date()
-  d.setHours(hour, min, 0, 0)
-  return new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' })
-    .formatToParts(d).find(p => p.type === 'dayPeriod')?.value || null
+/** Sort key for a habit step: its time, or +∞ so untimed habits sink. */
+const timeKey = habit => {
+  const t = parseTime(habit?.time)
+  return t ? t.hour * 60 + t.min : Infinity
 }
 
 /* ── Notifications ───────────────────────────────────────────────────────────
-   Derived, never hand-maintained. The old app kept a second literal list of
-   reminders beside the protocol, so adding a step meant remembering to edit
-   both — and forgetting was invisible until a reminder read out a stale list.
-   A block's reminder now fires `remind` minutes before that block starts, on
-   exactly the days the block has tasks, and reads out those tasks.
-
-   `remind: null` means the block is silent. */
+   Derived from the habits themselves now, not from time blocks. A habit with a
+   time and a `remind` fires that many minutes before, on exactly the weekdays
+   its templates are assigned to. Habits sharing a fire time are merged into one
+   notification, because three separate buzzes at 06:20 is three chances to
+   dismiss the whole morning. */
 export function notifScheduleFor(routine) {
-  const out = []
+  const bucket = new Map()
 
-  for (const block of routine.blocks) {
-    const start = parseTime(block.start)
-    if (!start || block.remind == null) continue
+  for (const habit of routine.habits) {
+    const t = parseTime(habit.time)
+    if (!t || habit.remind == null) continue
 
-    const tasks = routine.tasks.filter(t => t.block === block.id)
-    if (!tasks.length) continue
+    const days = habitDays(routine, habit.id)
+    if (!days.length) continue
 
-    const days = new Set()
-    for (const t of tasks) for (const d of taskDays(routine, t)) days.add(d)
-    if (!days.size) continue
+    // Clamp rather than wrap: a reminder for a 00:05 habit belongs at midnight
+    // that morning, not at 23:55 the evening before, where `days` would then be
+    // pointing at the wrong day entirely.
+    const at = Math.max(0, t.hour * 60 + t.min - habit.remind)
+    const key = `${at}`
 
-    // Clamp rather than wrap: the reminder for a 00:05 block belongs at midnight
-    // that same morning, not at 23:55 the evening before — where `days` would
-    // then be pointing at the wrong day entirely.
-    const total = Math.max(0, start.hour * 60 + start.min - block.remind)
-
-    out.push({
-      id: block.id,
-      hour: Math.floor(total / 60),
-      min: total % 60,
-      title: `${block.label} in ${block.remind} min`,
-      body: tasks.map(t => t.name).join(' → '),
-      days: [...days].sort(),
-    })
+    if (!bucket.has(key)) bucket.set(key, { at, habits: [], days: new Set() })
+    const b = bucket.get(key)
+    b.habits.push(habit)
+    for (const d of days) b.days.add(d)
   }
 
-  return out.sort((a, b) => (a.hour - b.hour) || (a.min - b.min))
+  return [...bucket.values()]
+    .sort((a, b) => a.at - b.at)
+    .map(b => ({
+      id: `at-${b.at}`,
+      hour: Math.floor(b.at / 60),
+      min: b.at % 60,
+      title: b.habits.length === 1
+        ? `${b.habits[0].name} soon`
+        : `${b.habits.length} things coming up`,
+      body: b.habits.map(h => h.name).join(' → '),
+      days: [...b.days].sort(),
+    }))
 }
 
-/* ── Writing ─────────────────────────────────────────────────────────────────
-   All pure: each returns a new routine. The store stamps `routineUpdatedAt`
-   around them, so nothing here has to know about persistence. */
+/* ── Writing — all pure, each returns a new routine ──────────────────────── */
 
 const replace = (list, item) =>
-  list.some(x => x.id === item.id)
-    ? list.map(x => (x.id === item.id ? item : x))
-    : [...list, item]
+  list.some(x => x.id === item.id) ? list.map(x => (x.id === item.id ? item : x)) : [...list, item]
 
-export function upsertTask(routine, task) {
-  return { ...routine, tasks: replace(routine.tasks, task) }
+export function upsertHabit(routine, habit) {
+  return { ...routine, habits: replace(routine.habits, habit) }
 }
 
-export function removeTask(routine, id) {
-  return { ...routine, tasks: routine.tasks.filter(t => t.id !== id) }
-}
-
-/**
- * Move a task one place within its own block. Reordering the flat list by raw
- * index would jump a task over a block boundary and silently re-home it, so the
- * swap is worked out among its block-mates and then applied to the flat array.
- */
-export function moveTask(routine, id, dir) {
-  const self = routine.tasks.find(t => t.id === id)
-  if (!self) return routine
-
-  const mates = routine.tasks.filter(t => t.block === self.block)
-  const at = mates.indexOf(self)
-  const to = at + dir
-  if (to < 0 || to >= mates.length) return routine
-
-  const a = routine.tasks.indexOf(mates[at])
-  const b = routine.tasks.indexOf(mates[to])
-  const tasks = [...routine.tasks]
-  ;[tasks[a], tasks[b]] = [tasks[b], tasks[a]]
-  return { ...routine, tasks }
-}
-
-export function upsertDayType(routine, dt) {
-  return { ...routine, dayTypes: replace(routine.dayTypes, dt) }
-}
-
-/** Deleting a day type strips it from every task that named it — leaving the
- *  reference behind would make a task silently unscheduled with no visible
- *  cause. The editor flags any task left with nowhere to run. */
-export function removeDayType(routine, id) {
+/** Deleting a habit pulls it out of every template that used it. Leaving the
+ *  step behind would render a blank row on the day it appears. */
+export function removeHabit(routine, habitId) {
   return {
     ...routine,
-    dayTypes: routine.dayTypes.filter(d => d.id !== id),
-    tasks: routine.tasks.map(t =>
-      (t.dayTypes || []).includes(id)
-        ? { ...t, dayTypes: t.dayTypes.filter(x => x !== id) }
-        : t),
+    habits: routine.habits.filter(h => h.id !== habitId),
+    templates: routine.templates.map(t => ({
+      ...t,
+      steps: t.steps.filter(s => !(s.kind === 'habit' && s.habitId === habitId)),
+    })),
   }
 }
 
-export function moveDayType(routine, id, dir) {
-  const at = routine.dayTypes.findIndex(d => d.id === id)
-  const to = at + dir
-  if (at < 0 || to < 0 || to >= routine.dayTypes.length) return routine
-  const dayTypes = [...routine.dayTypes]
-  ;[dayTypes[at], dayTypes[to]] = [dayTypes[to], dayTypes[at]]
-  return { ...routine, dayTypes }
+export function upsertCategory(routine, cat) {
+  return { ...routine, categories: replace(routine.categories, cat) }
 }
 
-export function upsertTag(routine, tag) {
-  return { ...routine, tags: replace(routine.tags, tag) }
-}
-
-export function removeTag(routine, id) {
-  return {
-    ...routine,
-    tags: routine.tags.filter(t => t.id !== id),
-    tasks: routine.tasks.map(t =>
-      (t.tags || []).includes(id) ? { ...t, tags: t.tags.filter(x => x !== id) } : t),
-  }
-}
-
-export function upsertBlock(routine, block) {
-  return { ...routine, blocks: replace(routine.blocks, block) }
-}
-
-/**
- * Deleting a block re-homes its tasks into the first surviving block rather
- * than deleting them — losing a step because its heading was removed is not a
- * trade anyone would accept. Refuses to remove the last block: tasks need
- * somewhere to live.
- */
-export function removeBlock(routine, id) {
-  const rest = routine.blocks.filter(b => b.id !== id)
+/** Deleting a category re-homes its habits onto the first surviving one rather
+ *  than deleting them — a habit without a category still has to render. */
+export function removeCategory(routine, catId) {
+  const rest = routine.categories.filter(c => c.id !== catId)
   if (!rest.length) return routine
   return {
     ...routine,
-    blocks: rest,
-    tasks: routine.tasks.map(t => (t.block === id ? { ...t, block: rest[0].id } : t)),
+    categories: rest,
+    habits: routine.habits.map(h => (h.categoryId === catId ? { ...h, categoryId: rest[0].id } : h)),
   }
 }
 
-export function moveBlock(routine, id, dir) {
-  const at = routine.blocks.findIndex(b => b.id === id)
+export function upsertTemplate(routine, tpl) {
+  return { ...routine, templates: replace(routine.templates, tpl) }
+}
+
+/** Deleting a template also frees every weekday pointing at it. */
+export function removeTemplate(routine, tplId) {
+  return {
+    ...routine,
+    templates: routine.templates.filter(t => t.id !== tplId),
+    week: routine.week.map(id => (id === tplId ? null : id)),
+  }
+}
+
+/** Point one weekday at a template (or at nothing). */
+export function assignDay(routine, jsDay, templateId) {
+  const week = [...routine.week]
+  week[jsDay] = templateId || null
+  return { ...routine, week }
+}
+
+/** Point a set of weekdays at a template, and clear it from the others. This is
+ *  what the template editor's day picker saves. */
+export function setTemplateDays(routine, templateId, days) {
+  const week = routine.week.map((id, d) =>
+    days.includes(d) ? templateId : (id === templateId ? null : id))
+  return { ...routine, week }
+}
+
+/* ── Steps ───────────────────────────────────────────────────────────────── */
+
+/**
+ * Add a habit to a template, inserted at the position its TIME implies rather
+ * than appended. A routine is a sequence through a day; dropping an 06:30 step
+ * at the bottom of the evening and making the user drag it up seven places is
+ * busywork the clock can do. Untimed habits go to the end.
+ *
+ * Waits are ignored when working out the position — they belong to the gap they
+ * were placed in, not to a clock time.
+ */
+export function addHabitStep(routine, templateId, habitId) {
+  const tpl = getTemplate(routine, templateId)
+  if (!tpl) return routine
+  if (tpl.steps.some(s => s.kind === 'habit' && s.habitId === habitId)) return routine
+
+  const key = timeKey(getHabit(routine, habitId))
+  const step = { id: newId('step'), kind: 'habit', habitId }
+
+  let at = tpl.steps.length
+  for (let i = 0; i < tpl.steps.length; i++) {
+    const s = tpl.steps[i]
+    if (s.kind !== 'habit') continue
+    if (timeKey(getHabit(routine, s.habitId)) > key) { at = i; break }
+  }
+  const steps = [...tpl.steps]
+  steps.splice(at, 0, step)
+  return upsertTemplate(routine, { ...tpl, steps })
+}
+
+/** Insert a wait. `at` is the index it lands at; default is the end. */
+export function addWaitStep(routine, templateId, minutes = 10, note = '', at = null) {
+  const tpl = getTemplate(routine, templateId)
+  if (!tpl) return routine
+  const step = { id: newId('wait'), kind: 'wait', minutes, note }
+  const steps = [...tpl.steps]
+  steps.splice(at == null ? steps.length : at, 0, step)
+  return upsertTemplate(routine, { ...tpl, steps })
+}
+
+export function updateStep(routine, templateId, stepId, patch) {
+  const tpl = getTemplate(routine, templateId)
+  if (!tpl) return routine
+  return upsertTemplate(routine, {
+    ...tpl,
+    steps: tpl.steps.map(s => (s.id === stepId ? { ...s, ...patch } : s)),
+  })
+}
+
+export function removeStep(routine, templateId, stepId) {
+  const tpl = getTemplate(routine, templateId)
+  if (!tpl) return routine
+  return upsertTemplate(routine, { ...tpl, steps: tpl.steps.filter(s => s.id !== stepId) })
+}
+
+export function moveStep(routine, templateId, stepId, dir) {
+  const tpl = getTemplate(routine, templateId)
+  if (!tpl) return routine
+  const at = tpl.steps.findIndex(s => s.id === stepId)
   const to = at + dir
-  if (at < 0 || to < 0 || to >= routine.blocks.length) return routine
-  const blocks = [...routine.blocks]
-  ;[blocks[at], blocks[to]] = [blocks[to], blocks[at]]
-  return { ...routine, blocks }
+  if (at < 0 || to < 0 || to >= tpl.steps.length) return routine
+  const steps = [...tpl.steps]
+  ;[steps[at], steps[to]] = [steps[to], steps[at]]
+  return upsertTemplate(routine, { ...tpl, steps })
+}
+
+/**
+ * Put a habit on exactly this set of weekdays, by adding it to the template
+ * each of those days runs and removing it from the rest.
+ *
+ * This is the bridge between how habits are CREATED ("which days?") and how the
+ * week is actually MODELLED (templates). It has one consequence worth stating
+ * out loud, and the UI does state it: two weekdays sharing a template cannot
+ * differ. Ticking Monday when Monday and Wednesday both run "Gym day" puts the
+ * habit on Wednesday too. Splitting them means a second template.
+ */
+export function setHabitDays(routine, habitId, days) {
+  let next = routine
+  const wanted = new Set()
+  for (const d of days) { const id = next.week[d]; if (id) wanted.add(id) }
+
+  for (const tpl of next.templates) {
+    const has = tpl.steps.some(s => s.kind === 'habit' && s.habitId === habitId)
+    if (wanted.has(tpl.id) && !has) next = addHabitStep(next, tpl.id, habitId)
+    else if (!wanted.has(tpl.id) && has) {
+      const t = getTemplate(next, tpl.id)
+      next = upsertTemplate(next, {
+        ...t,
+        steps: t.steps.filter(s => !(s.kind === 'habit' && s.habitId === habitId)),
+      })
+    }
+  }
+  return next
 }
 
 /* ── Validation ──────────────────────────────────────────────────────────────
-   A routine can arrive from a backup file, which means it can arrive malformed,
-   hand-edited, or from a schema that doesn't exist yet. Everything that reads a
-   routine assumes the shape is sound, so it is MADE sound exactly once, here,
-   on the way in — and falls back whole rather than half-repaired if the core of
-   it is missing. */
+   A routine can arrive from a backup file: malformed, hand-edited, or from a
+   schema that does not exist yet. Everything downstream assumes the shape is
+   sound, so it is made sound exactly once, here. */
 
 export function normaliseRoutine(input, fallback) {
   if (!input || typeof input !== 'object') return fallback
+  if (input.version === 1 || (input.tasks && input.blocks)) return migrateV1(input, fallback)
 
-  const days = v => (Array.isArray(v)
-    ? [...new Set(v.map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))].sort()
-    : [])
   const str = (v, d = '') => (typeof v === 'string' ? v : d)
-  const ids = (v, valid) => (Array.isArray(v) ? [...new Set(v.filter(x => valid.has(x)))] : [])
-  const tone = v => (TONES.includes(v) ? v : 'neutral')
+  const hex = v => (/^#[0-9a-f]{6}$/i.test(v) ? v : PALETTE[0])
+  const num = (v, lo, hi, d) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : d)
 
-  const dayTypes = (Array.isArray(input.dayTypes) ? input.dayTypes : [])
-    .filter(d => d && typeof d.id === 'string')
-    .map(d => ({ id: d.id, name: str(d.name, 'Untitled').slice(0, 40), tone: tone(d.tone), days: days(d.days) }))
+  const categories = (Array.isArray(input.categories) ? input.categories : [])
+    .filter(c => c && typeof c.id === 'string')
+    .map(c => ({ id: c.id, label: str(c.label, 'Untitled').slice(0, 40), color: hex(c.color) }))
+  if (!categories.length) return fallback
 
-  const tags = (Array.isArray(input.tags) ? input.tags : [])
-    .filter(t => t && typeof t.id === 'string')
-    .map(t => ({ id: t.id, label: str(t.label, 'Untitled').slice(0, 40), tone: tone(t.tone) }))
-
-  const blocks = (Array.isArray(input.blocks) ? input.blocks : [])
-    .filter(b => b && typeof b.id === 'string')
-    .map(b => ({
-      id: b.id,
-      label: str(b.label, 'Untitled').slice(0, 40),
-      start: parseTime(b.start) ? b.start : '',
-      end:   parseTime(b.end)   ? b.end   : '',
-      remind: Number.isFinite(b.remind) ? Math.max(0, Math.min(120, Math.round(b.remind))) : null,
-    }))
-
-  // Without at least one block and one day type there is nothing to hang a task
-  // on, and a half-empty routine is worse than the seed.
-  if (!blocks.length || !dayTypes.length) return fallback
-
-  const blockIds   = new Set(blocks.map(b => b.id))
-  const tagIds     = new Set(tags.map(t => t.id))
-  const dayTypeIds = new Set(dayTypes.map(d => d.id))
-
+  const catIds = new Set(categories.map(c => c.id))
   const seen = new Set()
-  const tasks = (Array.isArray(input.tasks) ? input.tasks : [])
-    .filter(t => {
-      if (!t || typeof t.id !== 'string' || !t.name || seen.has(t.id)) return false
-      seen.add(t.id)
-      return true
+  const habits = (Array.isArray(input.habits) ? input.habits : [])
+    .filter(h => {
+      if (!h || typeof h.id !== 'string' || !h.name || seen.has(h.id)) return false
+      seen.add(h.id); return true
     })
-    .map(t => ({
-      id: t.id,
-      name: str(t.name).slice(0, 120),
-      detail: str(t.detail).slice(0, 400),
-      // A task pointing at a block that no longer exists would never render.
-      block: blockIds.has(t.block) ? t.block : blocks[0].id,
-      tags: ids(t.tags, tagIds),
-      dayTypes: ids(t.dayTypes, dayTypeIds),
-      days: days(t.days),
-      target: str(t.target).slice(0, 120),
-      warn: str(t.warn).slice(0, 200),
-      wait: str(t.wait).slice(0, 200),
+    .map(h => ({
+      id: h.id,
+      name: str(h.name).slice(0, 120),
+      detail: str(h.detail).slice(0, 400),
+      time: parseTime(h.time) ? h.time : '',
+      categoryId: catIds.has(h.categoryId) ? h.categoryId : categories[0].id,
+      remind: h.remind == null ? null : num(h.remind, 0, 120, 10),
+      warn: str(h.warn).slice(0, 200),
     }))
 
-  return { version: 1, dayTypes, tags, blocks, tasks }
+  const habitIds = new Set(habits.map(h => h.id))
+  const templates = (Array.isArray(input.templates) ? input.templates : [])
+    .filter(t => t && typeof t.id === 'string')
+    .map(t => {
+    /* Step ids are deduped PER TEMPLATE, not across the document. A step is
+       addressed as (template, step), so two templates may legitimately reuse an
+       id — and the shipped seed did exactly that, at which point a global dedupe
+       silently deleted 12 of one template's 17 steps on load. */
+    const stepSeen = new Set()
+    return {
+      id: t.id,
+      title: str(t.title, 'Untitled').slice(0, 40),
+      color: hex(t.color),
+      steps: (Array.isArray(t.steps) ? t.steps : [])
+        .filter(s => {
+          if (!s || typeof s.id !== 'string' || stepSeen.has(s.id)) return false
+          if (s.kind === 'habit' && !habitIds.has(s.habitId)) return false
+          if (s.kind !== 'habit' && s.kind !== 'wait') return false
+          stepSeen.add(s.id); return true
+        })
+        .map(s => s.kind === 'wait'
+          ? { id: s.id, kind: 'wait', minutes: num(s.minutes, 0, 1440, 10), note: str(s.note).slice(0, 120) }
+          : { id: s.id, kind: 'habit', habitId: s.habitId }),
+    }
+  })
+
+  const tplIds = new Set(templates.map(t => t.id))
+  const week = ALL_DAYS.map(d => {
+    const id = Array.isArray(input.week) ? input.week[d] : null
+    return tplIds.has(id) ? id : null
+  })
+
+  return { version: 2, categories, habits, templates, week }
+}
+
+/* ── v1 → v2 ─────────────────────────────────────────────────────────────────
+   The migration that stops eight months of history from orphaning.
+
+   HABIT IDS ARE THE v1 TASK IDS, UNCHANGED. That is the whole contract: a day
+   logged as `{ sk_am_spf: true }` in 2026 still reads as "sunscreen done" after
+   this runs.
+
+   The shape change is real, though. v1 scheduled by OVERLAPPING day types, v2
+   by one template per weekday — so the migration works forwards from the only
+   thing both agree on: what each of the seven weekdays actually contained. It
+   replays v1's rules per weekday, then folds identical days into one shared
+   template, which is exactly how Mon/Wed/Fri end up on a single "Gym day"
+   rather than three copies.
+
+   v1's `wait` was free text on the task BEFORE the gap ("Wait 5–10 min before
+   next step"). v2 makes it a step of its own, so each one becomes a wait
+   inserted after its habit, with the first number in the string as its length. */
+function migrateV1(v1, fallback) {
+  try {
+    const tags = Array.isArray(v1.tags) ? v1.tags : []
+    const tasks = Array.isArray(v1.tasks) ? v1.tasks : []
+    const blocks = Array.isArray(v1.blocks) ? v1.blocks : []
+    const dayTypes = Array.isArray(v1.dayTypes) ? v1.dayTypes : []
+    if (!tasks.length) return fallback
+
+    // Tags → categories, keeping ids so nothing else has to be rewritten.
+    const categories = tags.map((t, i) => ({
+      id: t.id,
+      label: t.label || 'Untitled',
+      color: PALETTE[i % PALETTE.length],
+    }))
+    if (!categories.length) categories.push({ id: 'general', label: 'General', color: PALETTE[0] })
+
+    const blockStart = new Map(blocks.map(b => [b.id, b.start]))
+    const blockRemind = new Map(blocks.map(b => [b.id, b.remind]))
+
+    const habits = tasks.map(t => ({
+      id: t.id,                                   // ← THE CONTRACT
+      name: t.name,
+      detail: t.detail || '',
+      // A v1 task had no time of its own; it inherited its block's start.
+      time: blockStart.get(t.block) || '',
+      categoryId: categories.find(c => (t.tags || []).includes(c.id))?.id || categories[0].id,
+      remind: blockRemind.get(t.block) ?? null,
+      warn: t.warn || '',
+    }))
+
+    // Replay v1's scheduling for each weekday.
+    const ranOn = (task, d) => {
+      if ((task.days || []).includes(d)) return true
+      return (task.dayTypes || []).some(id => dayTypes.find(x => x.id === id)?.days?.includes(d))
+    }
+    const blockRank = new Map(blocks.map((b, i) => [b.id, i]))
+    const orderFor = d => tasks
+      .map((t, i) => ({ t, i }))
+      .filter(({ t }) => ranOn(t, d))
+      .sort((a, b) => (blockRank.get(a.t.block) ?? 99) - (blockRank.get(b.t.block) ?? 99) || a.i - b.i)
+      .map(({ t }) => t)
+
+    const templates = []
+    const week = ALL_DAYS.map(() => null)
+    const bySignature = new Map()
+
+    for (const d of ALL_DAYS) {
+      const dayTasks = orderFor(d)
+      if (!dayTasks.length) continue
+      const signature = dayTasks.map(t => t.id).join('|')
+
+      if (bySignature.has(signature)) { week[d] = bySignature.get(signature); continue }
+
+      const steps = []
+      for (const t of dayTasks) {
+        steps.push({ id: newId('step'), kind: 'habit', habitId: t.id })
+        if (t.wait) {
+          const n = parseInt(String(t.wait).match(/\d+/)?.[0] || '0', 10)
+          if (n > 0) steps.push({ id: newId('wait'), kind: 'wait', minutes: n, note: t.wait })
+        }
+      }
+
+      // Name it after whichever v1 day type best described that weekday — the
+      // same string the badge used to show, so the week still reads familiar.
+      const match = dayTypes.filter(x => x.days?.length < 7 && x.days?.includes(d))
+      const tpl = {
+        id: newId('tpl'),
+        title: match[0]?.name || DAY_LABELS[d],
+        color: PALETTE[templates.length % PALETTE.length],
+        steps,
+      }
+      templates.push(tpl)
+      bySignature.set(signature, tpl.id)
+      week[d] = tpl.id
+    }
+
+    if (!templates.length) return fallback
+    return { version: 2, categories, habits, templates, week }
+  } catch {
+    return fallback
+  }
 }
