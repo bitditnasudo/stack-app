@@ -273,11 +273,23 @@ function TemplateSheet({ routine, setRoutine, editing, onClose, onToast, onEdit 
                     <span className="grow">{formatWait(s.minutes)}{s.note ? ` — ${s.note}` : ''}</span>
                   </button>
                 ) : (
-                  <span className="seq-main" style={{ '--mood-color': s.category?.color }}>
+                  /* A BUTTON, like the wait beside it. It shipped as a <span>,
+                     which made this screen reorder-only: the wait rows opened an
+                     editor on tap and the habit rows did nothing, so changing a
+                     habit's time meant leaving the day, finding it on the Habits
+                     tab and coming back. Two rows of one list behaving
+                     differently is the bug; the missing editor is the symptom. */
+                  <button
+                    className="seq-main is-habit"
+                    style={{ '--mood-color': s.category?.color }}
+                    onClick={() => setAdding({ mode: 'edit-habit', habitId: s.habitId })}
+                  >
                     <span className="mood-dot" />
                     <span className="grow">{s.habit.name}</span>
-                    {s.habit.time && <span className="seq-time">{formatTime(s.habit.time)}</span>}
-                  </span>
+                    {s.habit.time
+                      ? <span className="seq-time">{formatTime(s.habit.time)}</span>
+                      : <span className="seq-time seq-time-unset">no time</span>}
+                  </button>
                 )}
                 <span className="seq-actions">
                   {i > 0 && (
@@ -338,6 +350,18 @@ function TemplateSheet({ routine, setRoutine, editing, onClose, onToast, onEdit 
           onNew={() => { setAdding(null); onClose(); onEdit({ kind: 'habit', isNew: true, intoTemplate: d.id,
             draft: { id: newId('habit'), name: '', detail: '', time: '', categoryId: routine.categories[0].id, remind: null, warn: '' } }) }}
           onClose={() => setAdding(null)}
+        />
+      )}
+      {/* Stacked ON the day sheet rather than replacing it, so editing a habit
+          does not lose your place in a twenty-step sequence. Same trick the wait
+          editor and the step picker already use. */}
+      {adding?.mode === 'edit-habit' && (
+        <HabitSheet
+          routine={routine}
+          setRoutine={setRoutine}
+          editing={{ draft: { ...routine.habits.find(h => h.id === adding.habitId) } }}
+          onClose={() => setAdding(null)}
+          onToast={onToast}
         />
       )}
       {(adding?.mode === 'wait' || adding?.mode === 'edit-wait') && (

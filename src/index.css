@@ -384,7 +384,10 @@ button, input, select, textarea { font-family: inherit; }
 .choice .choice-sub { font-size: var(--fs-xs); color: var(--muted); }
 
 /* Colour swatch picker. */
-.swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }
+/* Eight across, not six: the palette is eight, and at six it wrapped to a
+   second row that pushed the day editor's sequence — the thing you opened the
+   sheet for — most of a screen further down. */
+.swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
 .swatch {
   aspect-ratio: 1; border-radius: var(--radius-xs);
   border: 2.5px solid transparent; cursor: pointer; padding: 0;
@@ -1233,10 +1236,18 @@ button, input, select, textarea { font-family: inherit; }
 }
 .seq-main .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .seq-main.is-wait { color: var(--muted); font-style: italic; cursor: pointer; }
+/* Both kinds of row are buttons and both must LOOK it. The habit row shipped as
+   a <span>, so the sequence had two rows that behaved differently and gave no
+   hint of it. */
+.seq-main.is-habit { cursor: pointer; }
+.seq-main.is-habit:active, .seq-main.is-wait:active { opacity: .6; }
 .seq-time {
   flex: none; font-size: var(--fs-xs); color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+/* A habit with no time sinks to the end of the sequence and can never place
+   itself, so the gap is called out rather than left blank. */
+.seq-time-unset { font-style: italic; color: var(--muted-2); }
 .seq-actions { display: flex; align-items: center; gap: var(--sp-1); flex: none; }
 /* The picker rows are whole-row buttons rather than a body plus controls. */
 .seq-pick { width: 100%; background: none; border: none; cursor: pointer; color: inherit; }
