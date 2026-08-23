@@ -1245,9 +1245,7 @@ button, input, select, textarea { font-family: inherit; }
   flex: none; font-size: var(--fs-xs); color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-/* A habit with no time sinks to the end of the sequence and can never place
-   itself, so the gap is called out rather than left blank. */
-.seq-time-unset { font-style: italic; color: var(--muted-2); }
+/* (.seq-time-unset removed — untimed is the default now, not a gap to flag.) */
 .seq-actions { display: flex; align-items: center; gap: var(--sp-1); flex: none; }
 /* The picker rows are whole-row buttons rather than a body plus controls. */
 .seq-pick { width: 100%; background: none; border: none; cursor: pointer; color: inherit; }
@@ -1296,3 +1294,41 @@ button, input, select, textarea { font-family: inherit; }
   display: flex; align-items: center; justify-content: center;
   font-size: var(--fs-xs); font-weight: 700; color: var(--on-dark);
 }
+
+/* ── Toggle ──────────────────────────────────────────────────────────────────
+   A switch that reveals fields. Paired with <Toggle> in components/UI.jsx.
+   The kit only had .check-box, which reads as "one of several" rather than
+   "this changes what the form asks you". */
+.toggle-field { margin-bottom: var(--sp-4); }
+.toggle-row {
+  display: flex; align-items: center; gap: var(--sp-3); width: 100%;
+  min-height: var(--tap); padding: var(--sp-3);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: inherit; font: inherit;
+  text-align: left; cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.toggle-field.is-on .toggle-row { border-color: var(--brand); }
+.toggle-label { display: block; font-size: var(--fs-md); font-weight: 700; }
+.toggle-hint { display: block; font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; line-height: 1.4; }
+.toggle-track {
+  flex: none; width: 44px; height: 26px; border-radius: var(--radius-pill);
+  background: var(--neutral-line); padding: 3px;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.toggle-knob {
+  display: block; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--muted-on-bg);
+  transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.toggle-field.is-on .toggle-track { background: var(--brand); }
+.toggle-field.is-on .toggle-knob { transform: translateX(18px); background: var(--on-brand); }
+/* The revealed fields sit inside the toggle's box so it reads as one control
+   rather than as a switch that happens to be above some inputs. */
+.toggle-body {
+  padding: var(--sp-4) var(--sp-3) 0;
+  margin-top: calc(var(--sp-2) * -1);
+  border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+.toggle-body .field:last-child { margin-bottom: var(--sp-3); }

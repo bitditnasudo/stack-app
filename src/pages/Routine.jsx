@@ -26,7 +26,7 @@ import {
 import { PageHeader } from '../components/AppShell.jsx'
 import {
   Card, SectionHead, Button, Tag, Chip, Field, Sheet, Toast, Segmented,
-  DayPicker, ColorPicker, EditRow, Empty,
+  DayPicker, ColorPicker, EditRow, Empty, Toggle,
 } from '../components/UI.jsx'
 import { useStore } from '../lib/store.jsx'
 import {
@@ -286,9 +286,10 @@ function TemplateSheet({ routine, setRoutine, editing, onClose, onToast, onEdit 
                   >
                     <span className="mood-dot" />
                     <span className="grow">{s.habit.name}</span>
-                    {s.habit.time
-                      ? <span className="seq-time">{formatTime(s.habit.time)}</span>
-                      : <span className="seq-time seq-time-unset">no time</span>}
+                    {/* Only scheduled habits show a time. Untimed is the norm
+                        now, so the "no time" label this briefly had would have
+                        been noise on twelve rows out of fifteen. */}
+                    {s.habit.time && <span className="seq-time">{formatTime(s.habit.time)}</span>}
                   </button>
                 )}
                 <span className="seq-actions">
@@ -507,6 +508,9 @@ function HabitSheet({ routine, setRoutine, editing, onClose, onToast }) {
   const isNew = !!editing.isNew
   const [d, setD] = useState(editing.draft)
   const [days, setDays] = useState(isNew ? [] : habitDays(routine, editing.draft.id))
+  /* Remembered so toggling the switch off and straight back on does not silently
+     discard the time you already typed. Local only — never stored. */
+  const [lastTime, setLastTime] = useState(editing.draft.time || '08:00')
   const set = patch => setD(prev => ({ ...prev, ...patch }))
 
   /* Which weekdays could this habit even reach? Only ones with a routine
@@ -553,24 +557,44 @@ function HabitSheet({ routine, setRoutine, editing, onClose, onToast }) {
         </div>
       </Field>
 
-      <div className="field-row">
-        <Field label="Time" hint="Sets where it lands in the day.">
-          <input type="time" value={d.time} onChange={e => set({ time: e.target.value })} />
-        </Field>
-        <Field label="Remind me" hint={d.time ? undefined : 'Needs a time.'}>
-          <select
-            value={d.remind == null ? '' : String(d.remind)}
-            disabled={!d.time}
-            onChange={e => set({ remind: e.target.value === '' ? null : Number(e.target.value) })}
-          >
-            <option value="">No</option>
-            <option value="0">On time</option>
-            <option value="5">5 min before</option>
-            <option value="10">10 min before</option>
-            <option value="30">30 min before</option>
-          </select>
-        </Field>
-      </div>
+      {/* MOST HABITS HAVE NO TIME, and that is the default.
+          STACK is a stack: a pile you work through in the order you arranged,
+          not a timetable. Pinning every habit to a clock made a fifteen-step
+          skincare routine look like fifteen appointments, and it is not — it is
+          one sitting. A time is for the few things that genuinely are
+          clock-bound (sleep, a class, the gym), so it is opt-in.
+
+          There is no `scheduled` field: a habit is scheduled exactly when it has
+          a time. Storing a boolean beside the string would let the two disagree,
+          and then something has to decide which one is lying. */}
+      <Toggle
+        checked={!!d.time}
+        onChange={on => set(on ? { time: lastTime } : { time: '', remind: null })}
+        label="Happens at a set time"
+        hint="Leave off for anything you just work through during the day."
+      >
+        <div className="field-row">
+          <Field label="At">
+            <input
+              type="time"
+              value={d.time}
+              onChange={e => { setLastTime(e.target.value || '08:00'); set({ time: e.target.value }) }}
+            />
+          </Field>
+          <Field label="Remind me">
+            <select
+              value={d.remind == null ? '' : String(d.remind)}
+              onChange={e => set({ remind: e.target.value === '' ? null : Number(e.target.value) })}
+            >
+              <option value="">No</option>
+              <option value="0">On time</option>
+              <option value="5">5 min before</option>
+              <option value="10">10 min before</option>
+              <option value="30">30 min before</option>
+            </select>
+          </Field>
+        </div>
+      </Toggle>
 
       {!editing.intoTemplate && (
         <Field

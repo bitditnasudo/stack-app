@@ -152,6 +152,25 @@ hd = setHabitDays(R, 'ablazor', [1])                  // Monday only…
 ok(habitDays(hd, 'ablazor').join() === '1,3,5,6',
    'asking for Monday alone still gives Wed/Fri/Sat — they share the Gym template')
 
+// ── MOST HABITS HAVE NO TIME — a stack, not a timetable ─────────────────────
+const timed = R.habits.filter(h => h.time)
+ok(timed.length === 5, `only the clock-bound habits carry a time (got ${timed.length} of ${R.habits.length})`)
+ok(timed.every(h => h.remind != null), 'and every timed habit is one that actually wants a reminder')
+ok(R.habits.filter(h => !h.time).every(h => h.remind === null),
+   'an untimed habit can never hold a stale reminder')
+ok(R.habits.find(h => h.id === 'sk_am_growth').time === '', 'a mid-routine skincare step is untimed')
+ok(R.habits.find(h => h.id === 'sk_am_cleanse').time === '06:30', 'the step that OPENS the morning keeps its time')
+
+// An untimed habit appends rather than trying to place itself by clock.
+let stack = upsertHabit(blankRoutine(), { id: 'h_free', name: 'Free', time: '', categoryId: 'cat_skincare', detail: '', remind: null, warn: '' })
+stack = upsertHabit(stack, { id: 'h_late', name: 'Sleep', time: '23:00', categoryId: 'cat_skincare', detail: '', remind: 10, warn: '' })
+stack = { ...stack, templates: [{ id: 't2', title: 'Day', color: PALETTE[0], steps: [] }], week: ALL_DAYS.map(() => 't2') }
+stack = addHabitStep(stack, 't2', 'h_free')
+stack = addHabitStep(stack, 't2', 'h_late')
+ok(stack.templates[0].steps.map(s => s.habitId).join() === 'h_free,h_late',
+   'an untimed habit sits where it was put; a timed one still sorts by clock')
+ok(notifScheduleFor(stack).length === 1, 'only the timed habit schedules a reminder')
+
 // ── Notifications derive from habits, and merge by fire time ────────────────
 const sched = notifScheduleFor(R)
 const at = (h, m) => sched.find(s => s.hour === h && s.min === m)
@@ -210,8 +229,16 @@ ok(M.habits.map(h => h.id).sort().join() === ['sk_am_cleanse', 'sk_am_vitc', 'ab
 ok(M.habits.length === V1.tasks.length, 'no task is dropped')
 ok(M.categories.map(c => c.id).join() === 'skin,supp', 'v1 tags become categories, ids intact')
 ok(M.categories.every(c => /^#[0-9A-F]{6}$/i.test(c.color)), 'each migrated category gets a colour')
-ok(M.habits.find(h => h.id === 'sk_am_cleanse').time === '06:30', 'a habit inherits its old block start as its time')
-ok(M.habits.find(h => h.id === 'ablazor').time === '18:30', 'from the right block')
+// v1 gave a time to the BLOCK, not to each task in it. Handing that time to
+// every task invented per-habit times that never existed, which is exactly what
+// the app no longer wants. Only the task that OPENS a block keeps it.
+ok(M.habits.find(h => h.id === 'sk_am_cleanse').time === '06:30',
+   'the first task of a block inherits that block start as its time')
+ok(M.habits.find(h => h.id === 'sk_am_vitc').time === '',
+   'the SECOND task of the same block is left untimed — v1 never said it happened at 06:30')
+ok(M.habits.find(h => h.id === 'sk_am_vitc').remind === null, 'and carries no reminder')
+ok(M.habits.find(h => h.id === 'ablazor').time === '18:30', 'each block opener gets its own block start')
+ok(M.habits.filter(h => h.time).length === 3, 'one timed habit per block, no more')
 ok(M.habits.find(h => h.id === 'sk_pm_retinol').warn === 'Never layer with Vitamin C', 'warnings survive')
 
 // v1 scheduling is replayed, then identical days folded into one template.

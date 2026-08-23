@@ -53,20 +53,27 @@ const SEED = {
     { id: CAT.leisure,    label: 'Leisure',     color: PALETTE[0] }, // lime
   ],
 
-  /* The library. A habit knows what it is and when it belongs — never which
-     days it runs on; that comes from the templates below. */
+  /* The library. A habit knows what it IS — never which days it runs on; that
+     comes from the templates below.
+
+     MOST OF THESE HAVE NO TIME, on purpose. A fifteen-step skincare routine is
+     one sitting, not fifteen appointments, and pinning each step to a clock made
+     the app read as a timetable instead of a stack you work through. Only the
+     five things that are genuinely clock-bound carry a time — and they are
+     exactly the five that carried a reminder in the old block-based build, so
+     nothing is lost by untimeing the rest. */
   habits: [
     { id: 'sk_am_cleanse', name: 'LUMACA Cleanser', categoryId: CAT.skincare, time: '06:30', remind: 10,
       detail: 'Cleanse and pat completely dry before next step', warn: '' },
-    { id: 'sk_am_growth', name: 'Growth Serum (Minoxidil / Torongia)', categoryId: CAT.skincare, time: '06:35', remind: null,
+    { id: 'sk_am_growth', name: 'Growth Serum (Minoxidil / Torongia)', categoryId: CAT.skincare, time: '', remind: null,
       detail: 'Apply to dry skin', warn: '' },
-    { id: 'sk_am_vitc', name: 'Vitamin C (Babaria)', categoryId: CAT.skincare, time: '06:45', remind: null,
+    { id: 'sk_am_vitc', name: 'Vitamin C (Babaria)', categoryId: CAT.skincare, time: '', remind: null,
       detail: 'Apply Babaria Vitamin C', warn: '' },
-    { id: 'sk_am_ha', name: 'Hyaluronic Acid (Babaria)', categoryId: CAT.skincare, time: '06:48', remind: null,
+    { id: 'sk_am_ha', name: 'Hyaluronic Acid (Babaria)', categoryId: CAT.skincare, time: '', remind: null,
       detail: 'Mist face with water first, then apply HA to damp skin', warn: '' },
-    { id: 'sk_am_lub', name: 'Lubriderm Men 3-in-1', categoryId: CAT.skincare, time: '06:50', remind: null,
+    { id: 'sk_am_lub', name: 'Lubriderm Men 3-in-1', categoryId: CAT.skincare, time: '', remind: null,
       detail: 'Moisturize — lock in the hydration', warn: '' },
-    { id: 'sk_am_spf', name: 'ISDIN Sunscreen', categoryId: CAT.skincare, time: '06:55', remind: null,
+    { id: 'sk_am_spf', name: 'ISDIN Sunscreen', categoryId: CAT.skincare, time: '', remind: null,
       detail: 'Last step — every single day without exception', warn: '' },
 
     { id: 'tadalafil', name: 'Tadalafil', categoryId: CAT.supplement, time: '17:00', remind: 10,
@@ -81,19 +88,19 @@ const SEED = {
       detail: '25–40g within 30–60 min after training', warn: '' },
     /* Grouped post-workout for convenience, not physiology: creatine needs
        daily consistency, not precise timing. */
-    { id: 'creatine', name: 'Creatine', categoryId: CAT.supplement, time: '21:05', remind: null,
+    { id: 'creatine', name: 'Creatine', categoryId: CAT.supplement, time: '', remind: null,
       detail: '3–5g — take right after workout', warn: '' },
 
     { id: 'sk_pm_cleanse', name: 'LUMACA Cleanser', categoryId: CAT.skincare, time: '22:00', remind: 10,
       detail: 'Cleanse — leave skin slightly damp for next step', warn: '' },
-    { id: 'sk_pm_ha', name: 'Hyaluronic Acid (Babaria)', categoryId: CAT.skincare, time: '22:05', remind: null,
+    { id: 'sk_pm_ha', name: 'Hyaluronic Acid (Babaria)', categoryId: CAT.skincare, time: '', remind: null,
       detail: 'Apply to damp skin immediately after cleanse', warn: '' },
-    { id: 'sk_pm_retinol', name: 'Retinol (Babaria)', categoryId: CAT.skincare, time: '22:20', remind: null,
+    { id: 'sk_pm_retinol', name: 'Retinol (Babaria)', categoryId: CAT.skincare, time: '', remind: null,
       detail: 'Only once the HA is fully dry — damp skin increases irritation',
       warn: 'Never layer with Vitamin C' },
-    { id: 'sk_pm_min', name: 'Minoxidil / Torongia', categoryId: CAT.skincare, time: '22:25', remind: null,
+    { id: 'sk_pm_min', name: 'Minoxidil / Torongia', categoryId: CAT.skincare, time: '', remind: null,
       detail: 'Apply right after Retinol', warn: '' },
-    { id: 'sk_pm_lub', name: 'Lubriderm Men 3-in-1', categoryId: CAT.skincare, time: '22:30', remind: null,
+    { id: 'sk_pm_lub', name: 'Lubriderm Men 3-in-1', categoryId: CAT.skincare, time: '', remind: null,
       detail: 'Final step — seal everything in before sleep', warn: '' },
   ],
 

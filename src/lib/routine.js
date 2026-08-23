@@ -341,7 +341,14 @@ export function addHabitStep(routine, templateId, habitId) {
   for (let i = 0; i < tpl.steps.length; i++) {
     const s = tpl.steps[i]
     if (s.kind !== 'habit') continue
-    if (timeKey(getHabit(routine, s.habitId)) > key) { at = i; break }
+    // UNTIMED STEPS ARE TRANSPARENT to this scan, and that matters now that
+    // untimed is the norm. They sit where the user dragged them, so a timed
+    // habit must not leapfrog them: adding "Sleep, 23:00" to a hand-arranged
+    // morning stack was landing it at position 0, because every untimed step
+    // sorts as +∞ and therefore counted as "later than 23:00".
+    const existing = timeKey(getHabit(routine, s.habitId))
+    if (existing === Infinity) continue
+    if (existing > key) { at = i; break }
   }
   const steps = [...tpl.steps]
   steps.splice(at, 0, step)
@@ -519,16 +526,33 @@ function migrateV1(v1, fallback) {
     const blockStart = new Map(blocks.map(b => [b.id, b.start]))
     const blockRemind = new Map(blocks.map(b => [b.id, b.remind]))
 
-    const habits = tasks.map(t => ({
-      id: t.id,                                   // ← THE CONTRACT
-      name: t.name,
-      detail: t.detail || '',
-      // A v1 task had no time of its own; it inherited its block's start.
-      time: blockStart.get(t.block) || '',
-      categoryId: categories.find(c => (t.tags || []).includes(c.id))?.id || categories[0].id,
-      remind: blockRemind.get(t.block) ?? null,
-      warn: t.warn || '',
-    }))
+    /* ONLY THE FIRST TASK OF EACH BLOCK KEEPS A TIME.
+       A v1 task had no time of its own — it inherited its BLOCK's start, which
+       meant "the morning starts at 06:30", not "this step happens at 06:30".
+       The first migration handed that same time to every task in the block, so
+       a six-step morning arrived as six habits all claiming 06:30: times that
+       never existed in v1, on a screen that now treats a time as a deliberate
+       choice.
+
+       Giving it to the first task alone preserves exactly what v1 actually had
+       — one reminder per block, at the block's start — and leaves the rest as
+       the stack they always were. */
+    const blockFirst = new Set()
+    for (const t of tasks) if (!blockFirst.has(t.block)) blockFirst.add(t.block)
+    const seenBlock = new Set()
+    const habits = tasks.map(t => {
+      const isBlockOpener = !seenBlock.has(t.block)
+      seenBlock.add(t.block)
+      return {
+        id: t.id,                                 // ← THE CONTRACT
+        name: t.name,
+        detail: t.detail || '',
+        time: isBlockOpener ? (blockStart.get(t.block) || '') : '',
+        categoryId: categories.find(c => (t.tags || []).includes(c.id))?.id || categories[0].id,
+        remind: isBlockOpener ? (blockRemind.get(t.block) ?? null) : null,
+        warn: t.warn || '',
+      }
+    })
 
     // Replay v1's scheduling for each weekday.
     const ranOn = (task, d) => {

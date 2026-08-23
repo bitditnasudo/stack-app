@@ -497,3 +497,35 @@ export function ColorPicker({ value, onChange, palette }) {
     </div>
   )
 }
+
+/**
+ * A labelled on/off switch that REVEALS something when on.
+ *
+ * The kit had no switch — only `.check-box`, which is a checkbox in a list and
+ * reads as "one of several", not as "this changes what the form asks you".
+ * That distinction is the whole point here: scheduling a habit is a mode, and
+ * turning it on adds fields.
+ *
+ * A real <button role="switch"> with aria-checked, so it announces as a switch
+ * rather than as a pressed button.
+ */
+export function Toggle({ checked, onChange, label, hint, children }) {
+  return (
+    <div className={`toggle-field${checked ? ' is-on' : ''}`}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        className="toggle-row"
+        onClick={() => onChange(!checked)}
+      >
+        <span className="grow">
+          <span className="toggle-label">{label}</span>
+          {hint && <span className="toggle-hint">{hint}</span>}
+        </span>
+        <span className="toggle-track" aria-hidden="true"><span className="toggle-knob" /></span>
+      </button>
+      {checked && children && <div className="toggle-body">{children}</div>}
+    </div>
+  )
+}

@@ -153,11 +153,31 @@ Step = { id, kind:'habit', habitId } | { id, kind:'wait', minutes, note }
 
 ### Three ideas, deliberately separate
 
-1. **A HABIT is a thing you do** — name, category, and the time of day it
-   belongs at. It knows nothing about which days it runs. That is what makes it
-   reusable: "Creatine" is one habit whether it appears on three days or seven.
-   **It does not store its days** — `habitDays()` derives them from the week.
-   Storing them would duplicate the templates and drift.
+1. **A HABIT is a thing you do** — a name and a category. It knows nothing about
+   which days it runs. That is what makes it reusable: "Creatine" is one habit
+   whether it appears on three days or seven. **It does not store its days** —
+   `habitDays()` derives them from the week. Storing them would duplicate the
+   templates and drift.
+
+   **A TIME IS OPT-IN, and most habits do not have one.** The app is called
+   STACK because a day is a pile you work through in the order you arranged, not
+   a timetable. Pinning every habit to a clock made a fifteen-step skincare
+   routine read as fifteen appointments when it is one sitting. A time is for
+   the few things genuinely bound to a clock — sleep, a class, the gym — and it
+   is what unlocks a reminder.
+
+   There is **no `scheduled` boolean**: a habit is scheduled exactly when
+   `time !== ''`. A flag beside the string could disagree with it, and then
+   something has to decide which one is lying.
+
+   Two consequences worth knowing:
+   - **No time means no reminder.** `normaliseRoutine` cannot enforce it, so the
+     UI clears `remind` when the toggle goes off, and `verify.mjs` asserts no
+     untimed habit holds a stale one.
+   - **Untimed steps are transparent to `addHabitStep`'s clock scan.** They sit
+     where the user dragged them, so a timed habit must never leapfrog them —
+     adding "Sleep, 23:00" to a hand-arranged morning was landing it at position
+     0, because an untimed step sorts as +∞ and so counted as "later than 23:00".
 
 2. **A TEMPLATE is a named day** — a mood, a colour, and an ORDERED list of
    steps. **Waits are steps in that list**, not a field on the habit before the
@@ -201,6 +221,14 @@ day, so the week still reads familiar.
 
 v1's free-text `wait` ("Wait 5–10 min before next step") becomes a real wait step
 after its habit, with the first integer in the string as its length.
+
+**Only the FIRST task of each block keeps a time.** A v1 task had no time of its
+own — it inherited its BLOCK's start, which meant "the morning starts at 06:30",
+not "this step happens at 06:30". The first version of this migration handed that
+time to every task in the block, so a six-step morning arrived as six habits all
+claiming 06:30: times that never existed in v1, on a screen that now treats a
+time as a deliberate choice. Giving it to the block opener alone preserves
+exactly what v1 actually had — one reminder per block, at the block's start.
 
 Verified against a real v1 blob with logged history: **zero orphaned ids, day
 totals untouched, Mon/Wed/Fri folded, waits converted.**
