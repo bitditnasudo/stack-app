@@ -95,6 +95,10 @@ export function StoreProvider({ children }) {
     folder: null,               // { id, name, pinned } once resolved
   }))
   const hydrated = useRef(false)   // skip the very first write: nothing changed yet
+  /* Whether this device is actually persisting. False means every edit lives
+     only in memory and the next launch starts from nothing — the condition
+     behind "the tutorial opens every time". Surfaced in Settings. */
+  const [storageOk, setStorageOk] = useState(true)
 
   /* Sync bookkeeping, all refs because none of it should cause a render:
        latest      the freshest state, readable from inside an async push
@@ -122,7 +126,9 @@ export function StoreProvider({ children }) {
 
   useEffect(() => {
     if (!hydrated.current) { hydrated.current = true; return }
-    saveLocal(state)
+    const ok = saveLocal(state)
+    // Same-value setState bails out before re-rendering, so this cannot loop.
+    setStorageOk(prev => (prev === ok ? prev : ok))
   }, [state])
 
   /* ── One-time import of the GitHub Pages build's data ──────────────────────
@@ -500,13 +506,13 @@ export function StoreProvider({ children }) {
   }, [])
 
   const value = useMemo(() => ({
-    state, sync, routine: state.routine,
+    state, sync, storageOk, routine: state.routine,
     getDay, toggleTask, ensureDay, resetDay,
     setRoutine, resetRoutine,
     setSettings, setProfile, resetAll,
     exportBackup, importBackup,
     connectGoogle, disconnectGoogle, syncNow, refreshSync, folderUrl,
-  }), [state, sync, getDay, toggleTask, ensureDay, resetDay,
+  }), [state, sync, storageOk, getDay, toggleTask, ensureDay, resetDay,
        setRoutine, resetRoutine,
        setSettings, setProfile, resetAll, exportBackup, importBackup,
        connectGoogle, disconnectGoogle, syncNow, refreshSync])
@@ -656,11 +662,24 @@ function loadLocal() {
   }
 }
 
+/**
+ * Write the blob. Returns whether it actually landed.
+ * ────────────────────────────────────────────────────────────────────────────
+ * IT USED TO SWALLOW THE FAILURE ENTIRELY, and that is how a data-loss loop
+ * stayed invisible: a device where `setItem` throws (private browsing, quota,
+ * a locked-down storage partition) kept working perfectly in memory and then
+ * came back with nothing — which `loadLocal` reads as "brand-new device" and
+ * answers with the first-run flow. Every launch. Silently.
+ *
+ * The write can still fail, because nothing here can stop it. What changed is
+ * that the app now KNOWS, and Settings says so, instead of quietly resetting.
+ */
 function saveLocal(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    return true
   } catch {
-    // quota exceeded or private mode — the app keeps working in memory
+    return false
   }
 }
 

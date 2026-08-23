@@ -40,7 +40,7 @@ lives at `../../VANTARCO APP DATABASE/`. Two documents there are binding:
 
 | Rule | Meaning |
 |---|---|
-| `theme.css` is the only stylesheet edited per app | STACK edits **only** this file — the WINE token set, see "Theme" below |
+| `theme.css` is the only stylesheet edited per app | STACK edits **only** this file — the INCHWORM ON GUNMETAL set, see "Theme" below |
 | `index.css` never hardcodes a colour, size, radius or shadow | Add a token instead. This is what makes a theme swap a one-file change |
 | Needs a visual the kit lacks? **Add it to the kit** | New component in `UI.jsx`, its CSS in `index.css`. Never an inline style — that's how the source apps ended up with 14 font sizes |
 | Semantic names, never colour names | `tag-danger`, not `tag-red` |
@@ -163,7 +163,8 @@ bug in this family.
 
 `#131011` also appears in `index.html` as `theme-color`, which is what tints
 Android Chrome's address bar. Keep the two in step. (There is no manifest to
-keep in step any more — see "Not a PWA".)
+keep in step now — see "Installable again" below. The manifest's
+`theme_color` and `background_color` are the same value.)
 
 ---
 
@@ -900,32 +901,56 @@ third-party API call** — add the specific origin rather than widening it. It h
 been opened by exactly two entries, both for Drive sync: `connect-src
 https://www.googleapis.com` and `form-action https://accounts.google.com`.
 
-### Not a PWA — decided, not pending
+### Installable again — and why that reversed
 
-**STACK is a web page on Vercel. It is not installable and there is no app
-container.** As of v2.1 the manifest, the `apple-mobile-web-app-*` tags and
-`public/site.webmanifest` are gone. Do not add them back, do not re-wrap it, and
-do not treat `../STACK - Google Play package/` as work-in-progress — those Play
-Store artefacts point at the dead GitHub Pages origin, and the whole
-install-container idea was closed in Aug 2026.
+**STACK is a standalone web app on iOS and Android.** `public/site.webmanifest`
+(`display: standalone`, `scope: "/"`), the `apple-mobile-web-app-*` tags and the
+`apple-touch-icon` link are all back in `index.html`.
 
-**The service worker survived, and deleting it will break reminders.** A service
-worker is not an install feature. Notifications go out through
-`navigator.serviceWorker.ready` → `registration.showNotification()`, because the
-plain `new Notification()` constructor is unsupported on Android Chrome and
-throws. `public/sw.js` therefore stays registered even in a plain browser tab.
-Its caching is now a bonus (fast repeat loads, survivable flaky connection)
-rather than the reason it exists.
+**This reverses the v2.1 "Not a PWA — decided, not pending" call, and the reason
+is worth keeping** because the decision was not wrong in the abstract — it was
+wrong about how the app is used. It is used from an iOS home-screen icon, and
+without those tags that icon is a BOOKMARK, not an app container. Two things
+followed, both reported from a real phone:
 
-Two things that also stayed and look like PWA leftovers but are not:
+1. **It opened with Safari's chrome.** The bottom toolbar then stacked with
+   `env(safe-area-inset-bottom)` in `.bottom-nav`, pushing the floating nav up
+   off its intended position.
 
-- **`theme-color`** tints Android Chrome's address bar. That is a browser-tab
-  feature; it has nothing to do with installing.
-- **`icon-192.png`** is referenced by the notifications, not by a home screen.
-  (`apple-touch-icon.png` is a genuine leftover, kept only because Safari
-  auto-discovers it for bookmarks whether or not a `<link>` points at it.)
+2. **The first-run tour opened on every launch, and this is the expensive one.**
+   `loadLocal` reads "no saved blob" as "brand-new device" — a sound inference
+   only if storage is durable. WebKit deletes script-writable storage
+   (localStorage, IndexedDB, caches) after 7 days for ordinary sites and
+   **exempts web apps the user has installed to the home screen**. A bookmark
+   does not get that exemption; a standalone web app does. **The missing
+   container was the storage bug**, not a cosmetic complaint sitting beside it.
 
----
+Two consequences of the reversal that are easy to miss:
+
+- **`black-translucent` means the page paints UNDER the status bar.** The shell's
+  `.main-content` already reserved `env(safe-area-inset-top)`; `.onboard` did
+  not, because onboarding renders INSTEAD of the shell. It does now — otherwise
+  the first screen of a freshly installed app sits under the clock.
+- **The manifest is in the service worker's SHELL.** An installed app that
+  cannot read its own manifest on a cold offline launch loses its name and icon.
+
+**This is NOT a revival of the Play Store package.** `../STACK - Google Play
+package/` still points at the dead GitHub Pages origin and stays dead. This is
+the web app manifest only.
+
+`theme-color` and `--bg` must stay in step; the manifest's `theme_color` and
+`background_color` too — they colour the splash.
+
+### Storage can fail, and now it says so
+
+`saveLocal` used to swallow the exception and return, so a device where
+`setItem` throws (private browsing, quota, a locked-down partition) kept working
+perfectly in memory and came back with nothing — which is indistinguishable from
+a new install and answers with the first-run flow. Every launch. Silently.
+
+It returns a boolean now, the store carries `storageOk`, and Settings leads with
+a danger card when it is false. **The write can still fail — nothing in the page
+can stop it — but the app no longer resets itself without saying why.**
 
 ## Working on this
 

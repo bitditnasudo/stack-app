@@ -39,7 +39,7 @@ export default function Settings() {
   const navigate = useNavigate()
   const {
     state, routine, exportBackup, importBackup, resetAll,
-    setSettings, setProfile,
+    setSettings, setProfile, storageOk,
     sync, connectGoogle, disconnectGoogle, syncNow, folderUrl,
   } = useStore()
   const [perm, setPerm] = useState(() => notificationPermission())
@@ -107,6 +107,28 @@ export default function Settings() {
   return (
     <div className="main-content">
       <PageHeader title="Settings" />
+
+      {/* THE LOUDEST THING ON THE PAGE WHEN IT IS TRUE, because the symptom is
+          otherwise indistinguishable from "the app forgot everything": nothing
+          persists, so the next launch reads no saved blob and opens the
+          first-run flow again. It used to fail silently — `saveLocal` caught
+          the exception and moved on. */}
+      {!storageOk && (
+        <Card variant="danger">
+          <div className="row row-tight">
+            <span className="row-icon"><AlertTriangle size={16} /></span>
+            <div className="grow">
+              <b>This device isn&rsquo;t saving your data</b>
+              <div className="muted">
+                Everything you change is working, but only in memory — it will be
+                gone when you close STACK, and the first-run tour will open
+                again. Private browsing blocks storage; so does a full disk.
+                Connect Google Drive below, or open STACK in a normal tab.
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* ── You ───────────────────────────────────────────────────────────────
           Everything the first-run flow asked for, in one place, so a device

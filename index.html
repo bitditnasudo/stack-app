@@ -14,18 +14,47 @@
 
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
 
-    <!-- STACK IS NOT AN INSTALLABLE PWA ANY MORE. The manifest link and the
-         apple-mobile-web-app-* tags were removed: it is used as a page on
-         Vercel, so there is no home-screen container to configure and those
-         tags only ever applied to one.
+    <!-- ── INSTALLABLE AGAIN, AND WHY THIS REVERSED ─────────────────────────
+         v2.1 removed the manifest and the apple-mobile-web-app-* tags on the
+         grounds that STACK was "a page on Vercel, not an app". In practice it
+         is used from an iOS home-screen icon, and WITHOUT these tags that icon
+         is a bookmark, not an app container. Two things followed, both reported
+         from a real phone:
 
-         theme-color STAYS — it colours the browser's own UI (Android Chrome's
-         address bar), which is a plain-tab feature, not an install feature.
+         1. It opened with Safari's chrome. The bottom toolbar then stacked with
+            `env(safe-area-inset-bottom)` in .bottom-nav, pushing the floating
+            nav up off its intended position.
+
+         2. THE TUTORIAL CAME BACK ON EVERY LAUNCH. This is the expensive one.
+            `loadLocal` reads "no saved blob" as "brand-new device" and opens
+            onboarding — a sound inference only if storage is durable. WebKit
+            deletes script-writable storage (localStorage, IndexedDB, caches)
+            after 7 days for ordinary sites, and **exempts web apps the user
+            has installed to the home screen**. A bookmark does not get that
+            exemption; a standalone web app does. So the container was the
+            storage bug, not a symptom beside it.
+
+         `display: standalone` + `scope: "/"` in site.webmanifest is what makes
+         iOS treat this as installed. `black-translucent` lets the page paint
+         under the status bar, which is why viewport-fit=cover above matters.
+
+         THIS IS NOT A REVIVAL OF THE PLAY STORE PACKAGE. `../STACK - Google
+         Play package/` still points at the dead GitHub Pages origin and stays
+         dead. This is the web app manifest only.
+
+         theme-color colours the browser's own UI as well as the splash.
          Keep it in sync with --bg in src/theme.css.
 
-         The service worker also stays, and NOT for offline: notifications fire
-         through its registration, because `new Notification()` is unsupported
-         on Android Chrome. See public/sw.js. -->
+         The service worker was never an install feature and never left:
+         notifications fire through its registration, because
+         `new Notification()` is unsupported on Android Chrome. See
+         public/sw.js. -->
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="STACK" />
     <meta name="theme-color" content="#243837" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />

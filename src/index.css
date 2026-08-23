@@ -1301,11 +1301,19 @@ button, input, select, textarea { font-family: inherit; }
 
 /* ── First run ───────────────────────────────────────────────────────────────
    Full-bleed, no nav, one decision per screen. */
+/* BOTH INSETS, not just the bottom one. The top matters as of the return to a
+   standalone container: `apple-mobile-web-app-status-bar-style` is
+   `black-translucent`, so the page paints UNDER the status bar and 32px of
+   padding is less than the ~47–59px the notch takes on a modern iPhone. The
+   shell's .main-content already reserved the top inset; onboarding renders
+   INSTEAD of the shell, so it never inherited that and would have put the first
+   screen of a freshly installed app under the clock. */
 .onboard {
   min-height: 100dvh;
   display: flex; flex-direction: column; justify-content: center;
   gap: var(--sp-4);
-  padding: var(--sp-6) var(--sp-5) calc(var(--sp-6) + env(safe-area-inset-bottom, 0px));
+  padding: calc(var(--sp-6) + env(safe-area-inset-top, 0px)) var(--sp-5)
+           calc(var(--sp-6) + env(safe-area-inset-bottom, 0px));
   max-width: var(--shell-w); margin: 0 auto;
 }
 .onboard-mark {
