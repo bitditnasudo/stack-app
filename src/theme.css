@@ -184,6 +184,27 @@
      every step: 12.92 / 10.36 / 7.78 / 6.06 / 4.53:1. */
   --heat-ink:    #F6F0F1;
 
+  /* ── Rest day ──────────────────────────────────────────────────────────────
+     THE ONE COLOUR THAT IS A SURFACE RATHER THAN AN IDENTITY, and it is in this
+     file for exactly the reason every other literal is: index.css may not hold
+     a colour, and the week strip needs one that no palette entry can supply.
+
+     Gunmetal is on the reference palette but it CANNOT be a mood colour on this
+     page. Measured against the components that ink WITH the colour they wash:
+     1.31:1 as a .mood chip, 1.30:1 as a tinted week pill, 1.53:1 against the
+     page — invisible in all three, which is why routine.js's PALETTE excludes
+     it and exports it as REST_COLOR instead.
+
+     Used the one way it works — a SOLID fill, never a wash — it is 12.38:1
+     under --rest-ink, better than any palette entry manages. That is the whole
+     trick: a rest day is off the workload ramp by construction, not by
+     convention, because the tone it uses cannot be put on the ramp at all.
+
+     `--rest-fill` is the literal REST_COLOR in routine.js. Keep the two in
+     step; `scripts/contrast.mjs` asserts the pairing. */
+  --rest-fill:   #243837;
+  --rest-ink:    #F6F0F1;
+
   /* ── Status ────────────────────────────────────────────────────────────────
      Four semantic roles, each a solid plus the wash / line / ink triad. A
      component never says "green" or "red", it says --ok / --danger.

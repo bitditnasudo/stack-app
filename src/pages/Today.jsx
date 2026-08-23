@@ -15,18 +15,22 @@ import { RotateCcw, SlidersHorizontal, CalendarPlus } from 'lucide-react'
 import { PageHeader } from '../components/AppShell.jsx'
 import { Card, Progress, StepCard, WaitCard, Toast, Empty, Button } from '../components/UI.jsx'
 import { formatTime, formatWait } from '../lib/routine.js'
+import { iconFor } from '../lib/icons.js'
 import { formatLongDay } from '../lib/dates.js'
 import { useToday } from '../lib/useToday.js'
 import { BrandMark } from '../app.config.jsx'
 
 export default function Today() {
   const navigate = useNavigate()
-  const { date, steps, kind, checked, done, total, pct, waitMinutes, toggle, reset } = useToday()
+  const { date, steps, kind, done, total, pct, waitMinutes, isDone, toggle, reset } = useToday()
   const [toast, setToast] = useState(null)
 
   const onToggle = step => {
-    const wasDone = !!checked[step.habitId]
-    toggle(step.habitId)
+    // `isDone`, not `checked[...]` — a day logged before schema v3 is keyed by
+    // habit id, and reading the map directly would report every one of those
+    // rows as un-ticked and then announce "1 of 15" on the way back down.
+    const wasDone = isDone(step)
+    toggle(step)
     if (wasDone) return
     const next = done + 1
     if (next === total) setToast('All done for today.')
@@ -85,10 +89,16 @@ export default function Today() {
           : (
             <StepCard
               key={step.id}
-              done={!!checked[step.habitId]}
+              done={isDone(step)}
               name={step.habit.name}
               detail={step.habit.detail}
-              time={formatTime(step.habit.time)}
+              /* `step.time`, not `step.habit.time` — resolveSteps has already
+                 folded the step's own override over the habit's, which is what
+                 lets one "LUMACA Cleanser" read 6:30 AM here and 10:00 PM
+                 eleven rows down. */
+              time={formatTime(step.time)}
+              duration={step.duration}
+              glyph={iconFor(step.habit, step.category)}
               category={step.category}
               warn={step.habit.warn}
               onToggle={() => onToggle(step)}

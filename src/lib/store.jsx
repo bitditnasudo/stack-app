@@ -12,18 +12,31 @@
    ticked different boxes on the same day resolve by last edit, as they should.
 
    Day log shape:
-     { id: '2026-08-10', checked: { taskId: true }, total: 15, updatedAt }
+     { id: '2026-08-10', checked: { stepId: true }, total: 15, updatedAt }
 
    `total` is stored, not recomputed, because the protocol can change. A Tuesday
    logged as 9/9 before a new evening step was added must keep reading 100% —
    recomputing the denominator would silently rewrite history to 9/10.
+
+   ── `checked` IS KEYED BY STEP ID AS OF SCHEMA v3, AND WAS KEYED BY HABIT ID
+      FOR EVERYTHING BEFORE IT ──────────────────────────────────────────────
+   A habit may now appear in one day more than once ("water, four times"), so a
+   tick has to say WHICH occurrence; a habit id cannot, and ticking the morning
+   cleanse used to tick the evening one. See (A) and (B) in `routine.js`.
+
+   BOTH KINDS OF KEY ARE READ. Nothing rewrites a logged day just because it is
+   old: `stepDoneIn` resolves a habit-id key against the first step of that
+   habit, which is exact, because no earlier version could produce a second one.
+   A day is only rewritten when the user actually toggles a step on it (the
+   legacy key is dropped as the step key takes over) or when the ONE-TIME
+   library dedupe moves a tick onto the step its removed habit became.
    ========================================================================== */
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { STORAGE_KEY, APP_VERSION } from '../app.config.jsx'
 import { getLocalDateKey, isDateKey } from './dates.js'
-import { defaultRoutine } from './protocol.js'
-import { normaliseRoutine } from './routine.js'
+import { defaultRoutine, backfillFromSeed } from './protocol.js'
+import { normaliseRoutine, dedupeLibrary, rewriteCheckedIds } from './routine.js'
 import {
   isAuthenticated, isConfigured, signIn, clearToken, resolveFolder, folderUrl,
   findSyncFile, createSyncFile, updateSyncFile, downloadSyncFile, AuthExpiredError,
@@ -43,7 +56,19 @@ const EMPTY = {
   // saved state spreads over this default and keeps `true`, so upgrading never
   // shows the first-run flow. Only `loadLocal` finding NO saved blob at all
   // flips it to false — see there.
-  settings: { onboardingDone: true, legacyImported: false, notifyAsked: false },
+  settings: {
+    onboardingDone: true, legacyImported: false, notifyAsked: false,
+    // The one-time library cleanup. DEFAULTS FALSE, unlike `onboardingDone`,
+    // because it is a migration rather than a first-run flow: every existing
+    // device is exactly what it is there to clean up, so it has to run once on
+    // each of them and then latch. It is NOT an ongoing duplicate check —
+    // creating two habits with the same name afterwards is allowed.
+    libraryDeduped: false,
+    // Empty means "never set", and `dayProgress` returns null for it rather
+    // than assuming an 07:00–23:00 day nobody chose. Onboarding asks; an
+    // upgrading device simply shows no elapsed-day bar until it answers.
+    wakeTime: '', sleepTime: '',
+  },
   settingsUpdatedAt: null,
   profile: { name: '' },
   profileUpdatedAt: null,
@@ -118,6 +143,44 @@ export function StoreProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /* ── One-time library dedupe ───────────────────────────────────────────────
+     A MIGRATION, NOT A FEATURE. The shipped library carries the same item twice
+     under two ids — `sk_am_cleanse`/`sk_pm_cleanse` and two more pairs — because
+     schema v2 could not put one habit in a day twice. v3 can, so the workaround
+     comes out: see `dedupeLibrary` in routine.js for what merges and why.
+
+     IT REWRITES HISTORY, and that is the part that had to be got right. Removing
+     `sk_pm_cleanse` orphans every tick ever recorded under it, so each of those
+     ticks is moved onto the exact step the removed habit became. The pre-merge
+     id is what makes that exact: it is the only thing that still distinguishes
+     the morning cleanse from the evening one.
+
+     Runs once per device, then latches, exactly like the legacy import above. */
+  useEffect(() => {
+    if (state.settings.libraryDeduped) return
+    setState(s => {
+      const { routine: merged, merges, rewrites } = dedupeLibrary(s.routine)
+      /* Glyphs and durations arrive in the SAME pass, because a v2 device has
+         neither and would otherwise never get them — its habits are the seed's
+         under the seed's frozen ids, just without the two fields v3 added. It
+         only fills empties; see `backfillFromSeed`. */
+      const routine = backfillFromSeed(merged)
+      const settings = { ...s.settings, libraryDeduped: true }
+      const changed = merges.length > 0 || routine !== merged || merged !== s.routine
+
+      if (!changed) return { ...s, settings, settingsUpdatedAt: now() }
+      return {
+        ...s,
+        routine,
+        routineUpdatedAt: now(),
+        items: rewriteCheckedIds(s.items, routine, merges, rewrites),
+        settings,
+        settingsUpdatedAt: now(),
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   /* ── Day logs ────────────────────────────────────────────────────────────*/
 
   const getDay = useCallback(
@@ -125,15 +188,35 @@ export function StoreProvider({ children }) {
     [state.items],
   )
 
-  /** Flip one task on one day. `total` is passed in so the denominator is
-   *  recorded at the moment it was true. */
-  const toggleTask = useCallback((dateKey, taskId, total) => {
+  /**
+   * Flip one STEP on one day. `total` is passed in so the denominator is
+   * recorded at the moment it was true.
+   *
+   * `legacyId` is the step's habit id, and it is passed ONLY when this step is
+   * the first occurrence of that habit in the day — which is the only step a
+   * pre-v3 tick could have meant. Passing it lets the write take the old key
+   * over cleanly: without it, un-ticking a step whose tick is still recorded
+   * under the habit id deletes a key that isn't there and the row springs back
+   * to done on the next render.
+   *
+   * Days nobody touches are never rewritten. This is a lazy migration on
+   * purpose — `stepDoneIn` already reads both shapes, so rewriting history that
+   * reads correctly would be churn with a chance of loss and no upside.
+   */
+  const toggleTask = useCallback((dateKey, stepId, total, legacyId = null) => {
     setState(s => {
       const existing = s.items.find(i => i.id === dateKey)
       const checked = { ...(existing?.checked || {}) }
-      if (checked[taskId]) delete checked[taskId]   // delete, don't store false —
-      else checked[taskId] = true                   // keeps the blob small and
-      const next = {                                // makes counting a key count
+      const wasDone = !!checked[stepId] || (!!legacyId && !!checked[legacyId])
+
+      if (wasDone) {
+        delete checked[stepId]                      // delete, don't store false —
+        if (legacyId) delete checked[legacyId]      // keeps the blob small and
+      } else {                                      // makes counting a key count
+        checked[stepId] = true
+      }
+
+      const next = {
         id: dateKey,
         checked,
         total: total ?? existing?.total ?? 0,
@@ -200,9 +283,15 @@ export function StoreProvider({ children }) {
   }, [])
 
   /** Back to the shipped protocol. Day logs are untouched — history keyed by an
-   *  id the seed still uses simply lines up again. */
+   *  id the seed still uses simply lines up again.
+   *
+   *  IT DEDUPES ON THE WAY IN, and that is not the ongoing duplicate check the
+   *  spec rules out. The seed still carries the AM/PM pairs on purpose (its ids
+   *  are the frozen storage contract), so every path that INTRODUCES the seed
+   *  has to fold them the same way — otherwise "Reset routine" is a button that
+   *  quietly reinstates the exact workaround the migration just removed. */
   const resetRoutine = useCallback(() => {
-    setState(s => ({ ...s, routine: defaultRoutine(), routineUpdatedAt: now() }))
+    setState(s => ({ ...s, routine: dedupeLibrary(defaultRoutine()).routine, routineUpdatedAt: now() }))
   }, [])
 
   /* ── Settings & profile ──────────────────────────────────────────────────*/

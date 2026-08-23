@@ -1332,3 +1332,331 @@ button, input, select, textarea { font-family: inherit; }
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 .toggle-body .field:last-child { margin-bottom: var(--sp-3); }
+
+/* ============================================================================
+   DASHBOARD — the week strip and the card grid on Home.
+   ============================================================================
+   Paired with the DASHBOARD block in components/UI.jsx. --pill-color,
+   --pill-wash, --tile-fill and --tile-ink are set per element in JSX because
+   they come from USER DATA — a day's mood colour, a category's colour — which
+   no stylesheet can know. Everything else is a token.
+
+   Runtime colour is not covered by the theme's own measurements: run
+   `npm run contrast` after touching any wash percentage here. Three components
+   shipped illegible in v2.3 for exactly this reason.
+   ========================================================================== */
+
+/* ── The week strip ──────────────────────────────────────────────────────── */
+
+/* --sp-1, not --sp-2, and that is measured rather than aesthetic. Seven pills
+   across a 375px page: at an 8px gap each one lands 42px wide, which is under
+   the kit's 44px tap floor — invisible today because Home renders them as divs,
+   and a bug the moment anything passes `onSelect`. At 4px they are 45.6px. */
+.week-pills {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-4);
+}
+
+/* Vertical, not square. The pill is tall because it carries two lines — the day
+   and its load — and because seven squares in a row on a 375px screen leaves
+   each one 40px wide, which is under the tap floor once the gaps are taken out.
+   Height is what buys the target back without shrinking the gaps. */
+.week-pill {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px;
+  min-height: var(--tap); padding: var(--sp-3) 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--pill-color) calc(var(--pill-wash) * 100%), var(--surface));
+  color: var(--text);
+  font: inherit; text-align: center; cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.week-pill:active { transform: scale(.96); }
+
+.week-pill-day {
+  font-size: var(--fs-xs); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em;
+  opacity: .72;
+}
+.week-pill-count {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: var(--fs-md); line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A day with nothing on it is not shaded at all — it is the absence of the
+   thing the ramp measures, so it reads as an outline rather than as the palest
+   step of a scale it is not on. */
+.week-pill.is-empty {
+  background: transparent;
+  color: var(--muted);
+  border-style: dashed;
+}
+
+/* REST IS OFF THE RAMP, and this is the whole reason REST_COLOR exists.
+   Gunmetal is 1.30:1 as a wash and 12.38:1 as a solid fill under --text, so it
+   is used the one way it works: a filled pill, never a tinted one. */
+.week-pill.is-rest {
+  background: var(--rest-fill);
+  border-color: var(--rest-fill);
+  color: var(--rest-ink);
+}
+.week-pill.is-rest .week-pill-day { opacity: .82; }
+
+/* Today is marked with the brand ring rather than with a different fill: the
+   fill already encodes load, and a second meaning on the same channel is how
+   "busy" and "today" became indistinguishable in review. */
+.week-pill.is-today {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+
+/* ── The card grid ───────────────────────────────────────────────────────── */
+
+/* Two across, then one full width — the reference layout. It stays two across
+   at every width rather than collapsing to one on small screens: the pair is a
+   comparison (what's next / how many taken) and stacking them turns it into a
+   list where the comparison has to be remembered instead of seen. */
+.card-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.stat-card.is-wide { grid-column: 1 / -1; }
+
+.stat-card {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  min-height: 104px; padding: var(--sp-4);
+  text-align: left; font: inherit;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-mid) var(--ease-out);
+}
+.stat-card.is-tappable { cursor: pointer; }
+.stat-card.is-tappable:active { transform: scale(.98); }
+
+/* A toned tile takes its ink from the fill it was handed, the same way a step
+   card does. Neither one may assume what colour it was given — that assumption
+   is what made .mood invisible on the hero card. */
+.stat-card.is-toned {
+  background: var(--tile-fill);
+  color: var(--tile-ink);
+  border-color: transparent;
+}
+
+.stat-card-head { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.stat-card-glyph {
+  flex: none; display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: var(--radius-sm);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.stat-card-label {
+  font-size: var(--fs-xs); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+  opacity: .74;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The value wraps rather than truncating. A habit name is the value on two of
+   the three tiles and "ISDIN Suns…" is a worse row than a two-line one. */
+.stat-card-value {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: var(--fs-lg); line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.stat-card-sub { font-size: var(--fs-sm); opacity: .74; line-height: 1.4; }
+
+/* The wide tile carries the ring beside its text, which is the one place the
+   two need to sit on a row together. */
+.stat-card.is-wide { flex-direction: row; align-items: center; gap: var(--sp-4); }
+.stat-card.is-wide .stat-card-head { flex: 0 1 auto; }
+.stat-card-main { display: flex; flex-direction: column; gap: var(--sp-2); flex: 1; min-width: 0; }
+.stat-card-ring { flex: none; }
+
+/* ── Meters ──────────────────────────────────────────────────────────────── */
+
+/* Two bars sit together on Home and they measure different things, so each
+   says which it is. A bare bar is unambiguous alone and ambiguous in a pair. */
+.meter-row + .meter-row { margin-top: var(--sp-3); }
+.meter-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--sp-2); margin-bottom: 6px;
+}
+.meter-label { font-size: var(--fs-sm); font-weight: 700; }
+.meter-value { font-size: var(--fs-sm); color: var(--muted); }
+
+/* ── The greeting ────────────────────────────────────────────────────────── */
+
+.greeting { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+.greeting-name { color: var(--brand); }
+
+/* ============================================================================
+   TIME WHEEL — the wake / sleep picker.
+   ============================================================================
+   Paired with <TimeWheel> in components/UI.jsx.
+
+   THE NUMERAL IS THE INTERFACE on this screen, so it is set at display size and
+   in the display face. That is a deliberate exception to nothing — --fs-2xl and
+   --font-display are both kit tokens; it is only unusual in that a form control
+   is using them.
+   ========================================================================== */
+
+.wheel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+.wheel-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.wheel-glyph {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: var(--radius-sm);
+  background: var(--brand-wash); color: var(--brand-deep);
+}
+/* Sleep reads cooler than wake, which is the only thing separating two
+   otherwise identical controls when they sit one above the other. */
+.wheel-sleep .wheel-glyph { background: var(--info-wash); color: var(--info); }
+.wheel-label { font-weight: 700; font-size: var(--fs-md); }
+
+.wheel-cols { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); }
+
+/* Fixed height + snap = a wheel. The height is five items so the selected one
+   has two above and two below it: with three, the list reads as a cropped
+   column rather than as something that rolls. */
+.wheel-col {
+  flex: 1; max-width: 130px;
+  height: calc(var(--tap) * 2.5);
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-sm);
+}
+.wheel-col::-webkit-scrollbar { display: none; }
+.wheel-col:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* Half the column, so the first and last values can reach the middle. */
+.wheel-pad { height: calc(var(--tap) * 1.25 - 22px); flex: none; }
+
+.wheel-item {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 44px;
+  scroll-snap-align: center;
+  background: none; border: none; cursor: pointer;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl); font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  opacity: .5;
+  transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.wheel-item.is-active {
+  color: var(--text);
+  opacity: 1;
+  font-size: var(--fs-2xl);
+}
+.wheel-colon {
+  font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 700;
+  color: var(--muted); padding-bottom: 4px;
+}
+.wheel-read {
+  text-align: center; margin-top: var(--sp-3);
+  font-size: var(--fs-sm); color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================================
+   ICON PICKER — the glyph grid.
+   ============================================================================ */
+
+.icon-picker { display: flex; flex-direction: column; gap: var(--sp-3); }
+.icon-group-label {
+  font-size: var(--fs-xs); font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+  margin-bottom: var(--sp-2);
+}
+/* auto-fill rather than a fixed count: the sheet is 100% wide on a phone and
+   capped on a desktop, and a fixed grid leaves a ragged gutter at one of them. */
+.icon-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tap), 1fr));
+  gap: var(--sp-2);
+}
+.icon-swatch {
+  display: flex; align-items: center; justify-content: center;
+  min-width: var(--tap); height: var(--tap);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.icon-swatch.is-active {
+  border-color: var(--brand);
+  background: var(--brand-wash);
+  color: var(--brand-deep);
+}
+
+/* Start-day picker on the onboarding flow. Full-width rows rather than a
+   seven-across grid: this is one choice out of seven made once, so it is worth
+   the vertical space to spell the day out — "T" and "T" are the two days people
+   pick wrong on a compact picker. */
+.onboard-days { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.day-choice {
+  min-height: var(--tap); padding: 0 var(--sp-4);
+  display: flex; align-items: center;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: var(--fs-md); font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.day-choice.is-active { border-color: var(--brand); background: var(--brand-wash); color: var(--brand-deep); }
+
+/* ── Routine editor, v3 additions ────────────────────────────────────────── */
+
+/* The per-day colour button on a week row. It shows the colour it would set
+   rather than a generic swatch, so the row already answers "what colour is
+   Monday" without opening anything. */
+.day-swatch {
+  flex: none;
+  display: flex; align-items: center; justify-content: center;
+  width: var(--tap); height: var(--tap);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--mood-color) 18%, transparent);
+  color: var(--mood-color);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+/* A day that has diverged from its routine says so, or the only way to find out
+   is to open every day in turn. */
+.day-swatch.is-custom { border-color: var(--mood-color); }
+
+/* "2/4" on a step that appears more than once. Small, and on the row rather
+   than in a tooltip, because four identical rows with no marker make the
+   reorder arrows look broken. */
+.seq-rep {
+  flex: none; display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 7px; border-radius: var(--radius-pill);
+  background: var(--neutral-wash); color: var(--muted);
+  font-size: var(--fs-xs); font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A step whose time differs from its habit's is marked, because otherwise the
+   only way to tell a pinned 22:00 from an inherited one is to open the habit. */
+.seq-time.is-override { color: var(--brand-deep); font-weight: 700; }
+
+.tpl-actions {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--border);
+}
+.tpl-actions:first-of-type { border-top: none; }
+.tpl-actions-name {
+  font-weight: 600; font-size: var(--fs-sm);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

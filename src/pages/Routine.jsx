@@ -1,11 +1,14 @@
 /* ============================================================================
    ROUTINE — the editor.
    ============================================================================
-   Three tabs, because there are exactly three things to edit and they change at
-   different rates:
+   Four tabs, because there are exactly four things to edit and they change at
+   very different rates:
 
-     WEEK        which day runs which routine, and the ORDER of its steps.
-                 This is where you spend your time.
+     WEEK        which day runs which routine, its ORDER, and the colour that
+                 day wears. This is where you spend your time.
+     ROUTINES    the named days themselves — create, rename, copy, delete.
+                 Added in v3, when a routine stopped being reachable only
+                 through a weekday that happened to run it.
      HABITS      the library of things you do. Edited when you start or stop
                  doing something.
      CATEGORIES  workout / supplement / skincare / leisure. Almost never.
@@ -17,30 +20,41 @@
    `setRoutine`, so this file never does list surgery.
    ========================================================================== */
 
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ChevronLeft, Plus, RotateCcw, Clock, Hourglass, CalendarOff,
-  ChevronUp, ChevronDown, Trash2, X,
+  ChevronUp, ChevronDown, Trash2, X, Copy, Palette, BedDouble, Repeat2,
 } from 'lucide-react'
 import { PageHeader } from '../components/AppShell.jsx'
 import {
   Card, SectionHead, Button, Tag, Chip, Field, Sheet, Toast, Segmented,
-  DayPicker, ColorPicker, EditRow, Empty, Toggle,
+  DayPicker, ColorPicker, EditRow, Empty, Toggle, IconPicker,
 } from '../components/UI.jsx'
 import { useStore } from '../lib/store.jsx'
+import { ICON_GROUPS, iconFor } from '../lib/icons.js'
 import {
-  newId, PALETTE, DAY_ORDER, DAY_LABELS, ALL_DAYS,
+  newId, PALETTE, REST_COLOR, DAY_ORDER, DAY_LABELS, ALL_DAYS,
   templateForDay, daysForTemplate, resolveSteps, habitDays, isUnusedHabit,
-  formatTime, formatWait, totalWaitMinutes, getCategory,
+  formatTime, formatWait, totalWaitMinutes, getCategory, getTemplate,
+  habitCountIn, dayColorFor, setDayColor,
   upsertHabit, removeHabit, setHabitDays,
   upsertCategory, removeCategory,
-  upsertTemplate, removeTemplate, setTemplateDays, assignDay,
+  upsertTemplate, removeTemplate, renameTemplate, duplicateTemplate,
+  setTemplateDays, assignDay,
   addHabitStep, addWaitStep, updateStep, removeStep, moveStep,
 } from '../lib/routine.js'
 
+/* FOUR TABS, which is the Segmented control's ceiling and not a coincidence:
+   templates earned one because they gained a life of their own. A template used
+   to be reachable only THROUGH a weekday that ran it, so one that sat on no day
+   could be created and then never found again — the "Not in the week" list at
+   the foot of the Week tab existed to paper over exactly that. With rename,
+   duplicate and delete all belonging to the template rather than to the day, the
+   list is the surface and the Week tab goes back to being about the week. */
 const TABS = [
   { value: 'week', label: 'Week' },
+  { value: 'tpls', label: 'Routines' },
   { value: 'habits', label: 'Habits' },
   { value: 'cats', label: 'Categories' },
 ]
@@ -53,6 +67,7 @@ const daysSummary = days => {
 
 export default function Routine() {
   const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
   const { routine, setRoutine, resetRoutine } = useStore()
   const [tab, setTab] = useState('week')
   const [editing, setEditing] = useState(null)
@@ -60,6 +75,28 @@ export default function Routine() {
 
   const close = () => setEditing(null)
   const say = m => setToast(m)
+
+  /* `?day=N` opens that weekday's builder straight away — this is what makes
+     onboarding's "where do we start?" a real choice rather than a question with
+     no consequence. The param is CONSUMED (stripped from the URL) so a reload,
+     or a back-navigation later in the session, does not reopen a sheet the user
+     already closed. */
+  useEffect(() => {
+    const raw = params.get('day')
+    if (raw == null) return
+    const d = Number(raw)
+    setParams({}, { replace: true })
+    if (!Number.isInteger(d) || d < 0 || d > 6) return
+    const tpl = templateForDay(routine, d)
+    setEditing(tpl
+      ? { kind: 'template', draft: { ...tpl } }
+      : {
+          kind: 'template', isNew: true, days: [d],
+          draft: { id: newId('tpl'), title: '', rest: false,
+                   color: PALETTE[routine.templates.length % PALETTE.length], steps: [] },
+        })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="main-content">
@@ -88,6 +125,7 @@ export default function Routine() {
       <Segmented options={TABS} value={tab} onChange={setTab} />
 
       {tab === 'week'   && <WeekTab   routine={routine} setRoutine={setRoutine} onEdit={setEditing} />}
+      {tab === 'tpls'   && <TemplatesTab routine={routine} setRoutine={setRoutine} onEdit={setEditing} onToast={say} />}
       {tab === 'habits' && <HabitsTab routine={routine} onEdit={setEditing} />}
       {tab === 'cats'   && <CatsTab   routine={routine} onEdit={setEditing} />}
 
@@ -109,6 +147,18 @@ export default function Routine() {
           onClose={close} onToast={say}
         />
       )}
+      {editing?.kind === 'dayColor' && (
+        <DayColorSheet
+          routine={routine} setRoutine={setRoutine} day={editing.day}
+          onClose={close} onToast={say}
+        />
+      )}
+      {editing?.kind === 'rename' && (
+        <RenameSheet
+          template={editing.template} setRoutine={setRoutine}
+          onClose={close} onToast={say}
+        />
+      )}
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
@@ -126,7 +176,10 @@ function WeekTab({ routine, setRoutine, onEdit }) {
     kind: 'template',
     isNew: true,
     days,
-    draft: { id: newId('tpl'), title: '', color: PALETTE[routine.templates.length % PALETTE.length], steps: [] },
+    draft: {
+      id: newId('tpl'), title: '', rest: false,
+      color: PALETTE[routine.templates.length % PALETTE.length], steps: [],
+    },
   })
 
   return (
@@ -144,17 +197,20 @@ function WeekTab({ routine, setRoutine, onEdit }) {
         {DAY_ORDER.map(d => {
           const tpl = templateForDay(routine, d)
           const shared = tpl ? daysForTemplate(routine, tpl.id) : []
+          const color = dayColorFor(routine, d)
+          const overridden = !!routine.weekColor?.[d]
           return (
             <div className="week-row" key={d}>
               <span className="week-day">{DAY_LABELS[d].slice(0, 3)}</span>
               {tpl ? (
                 <button
                   className="week-slot"
-                  style={{ '--mood-color': tpl.color }}
+                  style={{ '--mood-color': color }}
                   onClick={() => onEdit({ kind: 'template', draft: { ...tpl } })}
                 >
                   <span className="mood-dot" />
                   <span className="grow">{tpl.title}</span>
+                  {tpl.rest && <BedDouble size={14} aria-label="Rest day" />}
                   <span className="week-count">
                     {resolveSteps(routine, tpl).filter(s => s.kind === 'habit').length}
                   </span>
@@ -167,6 +223,24 @@ function WeekTab({ routine, setRoutine, onEdit }) {
               )}
               {tpl && shared.length > 1 && (
                 <span className="week-shared" title={`Shared with ${daysSummary(shared)}`}>×{shared.length}</span>
+              )}
+              {/* THE DAY'S COLOUR IS PICKED PER DAY, NOT PER ROUTINE, and this
+                  button is why it had to be. Mon/Wed/Fri share one "Gym"; if
+                  the colour lived only on the routine, recolouring Monday would
+                  recolour Wednesday and Friday without saying so. The swatch
+                  starts on the routine's colour and diverges only when tapped —
+                  which is exactly "pre-fill from the template, allow override".
+                  A rest day's colour is fixed and not offered. */}
+              {tpl && !tpl.rest && (
+                <button
+                  className={`day-swatch${overridden ? ' is-custom' : ''}`}
+                  style={{ '--mood-color': color }}
+                  aria-label={`Colour for ${DAY_LABELS[d]}`}
+                  title={overridden ? 'Custom colour — tap to change' : "Routine's colour — tap to change"}
+                  onClick={() => onEdit({ kind: 'dayColor', day: d })}
+                >
+                  <Palette size={14} />
+                </button>
               )}
             </div>
           )
@@ -182,25 +256,165 @@ function WeekTab({ routine, setRoutine, onEdit }) {
 
       {/* A routine no weekday runs is not an error — it is one you built ahead
           or took off the week — but it is invisible from the rows above, so it
-          gets its own list rather than silently disappearing. */}
+          is called out here and LISTED on the Routines tab, which is the one
+          place every routine appears whether or not a day runs it. */}
       {routine.templates.filter(t => daysForTemplate(routine, t.id).length === 0).length > 0 && (
-        <>
-          <SectionHead title="Not in the week" />
-          <Card>
-            {routine.templates.filter(t => daysForTemplate(routine, t.id).length === 0).map(t => (
-              <EditRow
-                key={t.id}
-                title={t.title}
-                sub={`${t.steps.filter(s => s.kind === 'habit').length} habits · no day assigned`}
-                warn
-                onEdit={() => onEdit({ kind: 'template', draft: { ...t } })}
-                onDelete={() => { if (confirm(`Delete “${t.title}”?`)) setRoutine(r => removeTemplate(r, t.id)) }}
-              />
-            ))}
-          </Card>
-        </>
+        <p className="prose muted" style={{ fontSize: 'var(--fs-xs)' }}>
+          {routine.templates.filter(t => daysForTemplate(routine, t.id).length === 0).length} routine(s)
+          aren&rsquo;t on the week right now. They&rsquo;re on the <b>Routines</b> tab.
+        </p>
       )}
     </>
+  )
+}
+
+/* ── Routines — the template CRUD surface ────────────────────────────────────
+   Create, rename, edit, duplicate, delete. All four verbs in one place, which
+   is the point: before this tab a template could only be reached through a
+   weekday that ran it, so one on no day was created and then unfindable, and
+   "rename" meant opening the full day editor and retyping the title field.
+
+   DELETING A ROUTINE DOES NOT TOUCH THE DAYS ALREADY LOGGED FROM IT. Completion
+   is keyed by step id, each logged day stores its own denominator, and history
+   is a record of what happened rather than a view of the current routine. The
+   weekdays that ran it simply become unplanned. The confirm says so, because
+   "will this eat my streak?" is the question that stops people tidying up. */
+
+function TemplatesTab({ routine, setRoutine, onEdit, onToast }) {
+  const blank = () => ({
+    kind: 'template', isNew: true, days: [],
+    draft: {
+      id: newId('tpl'), title: '', rest: false,
+      color: PALETTE[routine.templates.length % PALETTE.length], steps: [],
+    },
+  })
+
+  return (
+    <>
+      <SectionHead
+        title="Routines"
+        sub={`${routine.templates.length}`}
+        action={
+          <button className="icon-btn" aria-label="Add a routine" onClick={() => onEdit(blank())}>
+            <Plus size={18} />
+          </button>
+        }
+      />
+      <Card>
+        {!routine.templates.length && (
+          <div className="block-empty">No routines yet. Add one, then put it on some days.</div>
+        )}
+        {routine.templates.map(t => {
+          const days = daysForTemplate(routine, t.id)
+          const steps = t.steps.filter(s => s.kind === 'habit').length
+          return (
+            <EditRow
+              key={t.id}
+              title={t.title}
+              warn={days.length === 0}
+              meta={
+                <>
+                  <span className="cat-chip" style={{ '--mood-color': t.rest ? REST_COLOR : t.color }}>
+                    <span className="mood-dot" />{steps} step{steps === 1 ? '' : 's'}
+                  </span>
+                  {t.rest && <Tag tone="neutral"><BedDouble />Rest</Tag>}
+                  {days.length
+                    ? <Tag tone="neutral">{daysSummary(days)}</Tag>
+                    : <Tag tone="warn"><CalendarOff />On no day</Tag>}
+                </>
+              }
+              onEdit={() => onEdit({ kind: 'template', draft: { ...t } })}
+              onDelete={() => {
+                if (confirm(`Delete “${t.title}”?\n\n`
+                  + `${days.length ? `${daysSummary(days)} become unplanned. ` : ''}`
+                  + 'Days you have already logged keep their history — this only '
+                  + 'changes what happens from now on.')) {
+                  setRoutine(r => removeTemplate(r, t.id)); onToast('Deleted.')
+                }
+              }}
+            />
+          )
+        })}
+      </Card>
+
+      {/* Rename and duplicate are their own row rather than icons crammed into
+          EditRow, which already carries edit / delete and is used on three
+          tabs. Two verbs that belong only to templates do not get to widen a
+          shared component. */}
+      {routine.templates.length > 0 && (
+        <Card>
+          <div className="section-title">Quick actions</div>
+          {routine.templates.map(t => (
+            <div className="tpl-actions" key={t.id}>
+              <span className="grow tpl-actions-name">{t.title}</span>
+              <Button size="sm" variant="secondary"
+                      onClick={() => onEdit({ kind: 'rename', template: t })}>
+                Rename
+              </Button>
+              <Button size="sm" variant="secondary"
+                      onClick={() => { setRoutine(r => duplicateTemplate(r, t.id)); onToast('Copied.') }}>
+                <Copy size={13} /> Copy
+              </Button>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      <p className="prose muted" style={{ fontSize: 'var(--fs-xs)' }}>
+        A copy starts on no day and carries the same steps. It is the quickest
+        way to split two weekdays that have been sharing one routine and now
+        need to differ — copy it, then move one day onto the copy.
+      </p>
+    </>
+  )
+}
+
+/** Rename on its own, because renaming is not editing. Opening a twenty-step
+ *  sequence editor to change one word is the friction this removes. */
+function RenameSheet({ template, setRoutine, onClose, onToast }) {
+  const [title, setTitle] = useState(template.title)
+  const save = () => {
+    setRoutine(r => renameTemplate(r, template.id, title))
+    onToast('Renamed.'); onClose()
+  }
+  return (
+    <Sheet title="Rename routine" onClose={onClose}>
+      <Field label="Name" hint="Every day running it shows this.">
+        <input value={title} autoFocus maxLength={40}
+               onChange={e => setTitle(e.target.value)}
+               onKeyDown={e => { if (e.key === 'Enter' && title.trim()) save() }} />
+      </Field>
+      <Button block disabled={!title.trim()} onClick={save}>Save</Button>
+    </Sheet>
+  )
+}
+
+/** The per-day mood colour (§3.5). Starts on the routine's own colour and
+ *  diverges only when something here is picked; "Use the routine's colour"
+ *  clears the override rather than writing the same hex, so a later change to
+ *  the routine still reaches the days that never chose for themselves. */
+function DayColorSheet({ routine, setRoutine, day, onClose, onToast }) {
+  const tpl = templateForDay(routine, day)
+  const current = routine.weekColor?.[day] || null
+
+  const pick = color => {
+    setRoutine(r => setDayColor(r, day, color))
+    onToast(color ? 'Colour set.' : "Back to the routine's colour.")
+    onClose()
+  }
+
+  return (
+    <Sheet title={`${DAY_LABELS[day]}'s colour`} onClose={onClose}>
+      <Field
+        label="Pick a colour"
+        hint={tpl ? `${tpl.title} runs on ${daysSummary(daysForTemplate(routine, tpl.id))}. This colours ${DAY_LABELS[day]} only.` : undefined}
+      >
+        <ColorPicker value={current || tpl?.color} onChange={pick} palette={PALETTE} />
+      </Field>
+      <Button variant="secondary" block disabled={!current} onClick={() => pick(null)}>
+        Use the routine&rsquo;s colour
+      </Button>
+    </Sheet>
   )
 }
 
@@ -239,9 +453,21 @@ function TemplateSheet({ routine, setRoutine, editing, onClose, onToast, onEdit 
                placeholder="Gym" autoFocus={isNew} />
       </Field>
 
-      <Field label="Colour">
+      <Field label="Colour" hint={d.rest ? 'A rest day always shows the rest colour, so this is only used if you turn rest off.' : undefined}>
         <ColorPicker value={d.color} onChange={c => set({ color: c })} palette={PALETTE} />
       </Field>
+
+      {/* REST IS A KIND OF DAY, NOT AN EMPTY ONE. A rest day can still hold a
+          full skincare routine — what it means is "no work is scheduled", and
+          the week strip needs that as a flag because it cannot be inferred from
+          a step count. A nine-step rest day and a nine-step light gym day are
+          the same number and completely different days. */}
+      <Toggle
+        checked={!!d.rest}
+        onChange={on => set({ rest: on })}
+        label="This is a rest day"
+        hint="Shown in its own colour on the week strip, off the busy-ness scale."
+      />
 
       <Field
         label="Which days run it"
@@ -282,14 +508,29 @@ function TemplateSheet({ routine, setRoutine, editing, onClose, onToast, onEdit 
                   <button
                     className="seq-main is-habit"
                     style={{ '--mood-color': s.category?.color }}
-                    onClick={() => setAdding({ mode: 'edit-habit', habitId: s.habitId })}
+                    onClick={() => setAdding({ mode: 'edit-step', step: s })}
                   >
                     <span className="mood-dot" />
                     <span className="grow">{s.habit.name}</span>
-                    {/* Only scheduled habits show a time. Untimed is the norm
-                        now, so the "no time" label this briefly had would have
-                        been noise on twelve rows out of fifteen. */}
-                    {s.habit.time && <span className="seq-time">{formatTime(s.habit.time)}</span>}
+                    {/* A habit may sit in this day more than once now, so a row
+                        that is one of several says which — without it, four
+                        identical "Glass of water" rows are indistinguishable
+                        and the reorder arrows read as no-ops. */}
+                    {habitCountIn(live, s.habitId) > 1 && (
+                      <span className="seq-rep" title="Appears more than once in this day">
+                        <Repeat2 size={12} />
+                        {steps.filter(x => x.kind === 'habit' && x.habitId === s.habitId).indexOf(s) + 1}
+                        /{habitCountIn(live, s.habitId)}
+                      </span>
+                    )}
+                    {/* `s.time` is the RESOLVED time — the step's own override
+                        if it set one, the habit's otherwise. Untimed is the
+                        norm, so nothing is printed for it. */}
+                    {s.time && (
+                      <span className={`seq-time${s.time !== (s.habit.time || '') ? ' is-override' : ''}`}>
+                        {formatTime(s.time)}
+                      </span>
+                    )}
                   </button>
                 )}
                 <span className="seq-actions">
@@ -349,13 +590,23 @@ function TemplateSheet({ routine, setRoutine, editing, onClose, onToast, onEdit 
           routine={routine} templateId={d.id}
           onPick={habitId => { ensureExists(); setRoutine(r => addHabitStep(r, d.id, habitId)); setAdding(null) }}
           onNew={() => { setAdding(null); onClose(); onEdit({ kind: 'habit', isNew: true, intoTemplate: d.id,
-            draft: { id: newId('habit'), name: '', detail: '', time: '', categoryId: routine.categories[0].id, remind: null, warn: '' } }) }}
+            draft: { id: newId('habit'), name: '', detail: '', time: '', categoryId: routine.categories[0].id,
+                     remind: null, warn: '', icon: '', duration: 0 } }) }}
           onClose={() => setAdding(null)}
         />
       )}
-      {/* Stacked ON the day sheet rather than replacing it, so editing a habit
+      {/* Stacked ON the day sheet rather than replacing it, so editing a step
           does not lose your place in a twenty-step sequence. Same trick the wait
           editor and the step picker already use. */}
+      {adding?.mode === 'edit-step' && (
+        <StepSheet
+          routine={routine} setRoutine={setRoutine}
+          templateId={d.id} step={adding.step}
+          onEditHabit={() => setAdding({ mode: 'edit-habit', habitId: adding.step.habitId })}
+          onClose={() => setAdding(null)}
+          onToast={onToast}
+        />
+      )}
       {adding?.mode === 'edit-habit' && (
         <HabitSheet
           routine={routine}
@@ -381,30 +632,107 @@ function TemplateSheet({ routine, setRoutine, editing, onClose, onToast, onEdit 
   )
 }
 
+/* ── One step, inside one day ────────────────────────────────────────────────
+   THE SHEET THAT SEPARATES "THIS OCCURRENCE" FROM "THIS HABIT", which is a
+   distinction that did not exist until a habit could appear twice. Tapping a
+   row used to open the habit editor directly, so changing when the EVENING
+   cleanse happens changed the morning one too — the two were the same record.
+
+   Everything here is about the step. The one button that leaves for the habit
+   says so, and says how many days it would reach. */
+function StepSheet({ routine, setRoutine, templateId, step, onEditHabit, onClose, onToast }) {
+  const habit = step.habit
+  const inherited = habit.time || ''
+  const [override, setOverride] = useState(step.time != null)
+  const [time, setTime] = useState(step.time != null ? step.time : (inherited || '08:00'))
+  const Glyph = iconFor(habit, step.category)
+  const usedIn = habitDays(routine, habit.id)
+
+  const save = () => {
+    setRoutine(r => updateStep(r, templateId, step.id, { time: override ? time : null }))
+    onToast('Saved.'); onClose()
+  }
+
+  return (
+    <Sheet title={habit.name} onClose={onClose}>
+      <Card>
+        <div className="row row-tight">
+          <span className="row-icon" style={{ color: step.category?.color }}><Glyph size={18} /></span>
+          <div className="grow">
+            <b>{habit.name}</b>
+            {habit.detail && <div className="muted">{habit.detail}</div>}
+          </div>
+          {habit.duration > 0 && <Tag tone="neutral"><Hourglass />{formatWait(habit.duration)}</Tag>}
+        </div>
+      </Card>
+
+      {/* THE OVERRIDE IS PER STEP AND IT IS WHAT MADE THE LIBRARY DEDUPE
+          LOSSLESS. One "LUMACA Cleanser" sits at 06:30 in the morning stack and
+          22:00 in the evening one because these two steps each pinned their own
+          time; before that, the only way to express it was two habits with the
+          same name, which is exactly what the cleanup removed. */}
+      <Toggle
+        checked={override}
+        onChange={on => setOverride(on)}
+        label="Give this step its own time"
+        hint={inherited
+          ? `Otherwise it uses ${formatTime(inherited)} from the habit itself.`
+          : 'The habit has no time, so this step has none either.'}
+      >
+        <Field label="At" hint="Only this occurrence. The habit is unchanged.">
+          <input type="time" value={time} onChange={e => setTime(e.target.value)} />
+        </Field>
+      </Toggle>
+
+      <Button block onClick={save}>Save step</Button>
+
+      <Button variant="secondary" block style={{ marginTop: 'var(--sp-2)' }} onClick={onEditHabit}>
+        Edit the habit itself
+      </Button>
+      <p className="prose muted" style={{ fontSize: 'var(--fs-xs)' }}>
+        That changes it everywhere — it&rsquo;s currently on {usedIn.length
+          ? daysSummary(usedIn) : 'no day'}.
+      </p>
+
+      <Button variant="danger" block onClick={() => {
+        setRoutine(r => removeStep(r, templateId, step.id)); onToast('Removed.'); onClose()
+      }}>
+        Remove from this day
+      </Button>
+    </Sheet>
+  )
+}
+
 /** Pick from the library, or peel off to create a new habit. */
 function HabitPicker({ routine, templateId, onPick, onNew, onClose }) {
-  const tpl = routine.templates.find(t => t.id === templateId)
-  const already = new Set((tpl?.steps || []).filter(s => s.kind === 'habit').map(s => s.habitId))
-  const available = routine.habits.filter(h => !already.has(h.id))
+  const tpl = getTemplate(routine, templateId)
 
+  /* NOTHING IS FILTERED OUT, and that is the change §3.1 asked for. This list
+     used to hide every habit already in the day, which made "a glass of water,
+     four times" impossible to express — you could add the first and then the
+     library appeared to have lost it. A habit already here shows its count
+     instead, so adding a second is a deliberate act rather than an accident. */
   return (
     <Sheet title="Add a step" onClose={onClose}>
       <Button block onClick={onNew}><Plus size={14} /> New habit</Button>
 
-      {available.length > 0 && <SectionHead title="From your habits" />}
+      {routine.habits.length > 0 && <SectionHead title="From your habits" />}
       <Card>
-        {!available.length && (
-          <div className="block-empty">
-            {routine.habits.length ? 'Every habit is already in this day.' : 'No habits yet.'}
-          </div>
-        )}
-        {available.map(h => {
+        {!routine.habits.length && <div className="block-empty">No habits yet.</div>}
+        {routine.habits.map(h => {
           const cat = getCategory(routine, h.categoryId)
+          const n = habitCountIn(tpl, h.id)
+          const Glyph = iconFor(h, cat)
           return (
             <button className="seq-row seq-pick" key={h.id} onClick={() => onPick(h.id)}>
               <span className="seq-main" style={{ '--mood-color': cat?.color }}>
-                <span className="mood-dot" />
+                <span className="row-icon"><Glyph size={15} /></span>
                 <span className="grow">{h.name}</span>
+                {n > 0 && (
+                  <span className="seq-rep" title={`Already in this day ${n} time${n === 1 ? '' : 's'}`}>
+                    <Repeat2 size={12} />{n}
+                  </span>
+                )}
                 {h.time && <span className="seq-time">{formatTime(h.time)}</span>}
               </span>
               <Plus size={16} />
@@ -414,7 +742,9 @@ function HabitPicker({ routine, templateId, onPick, onNew, onClose }) {
       </Card>
       <p className="prose muted" style={{ fontSize: 'var(--fs-xs)' }}>
         A step lands in the position its time implies, so you rarely have to
-        reorder by hand.
+        reorder by hand. Adding one you already have puts it in the day a second
+        time — that is how four glasses of water are four steps, and each gets
+        ticked on its own.
       </p>
     </Sheet>
   )
@@ -459,7 +789,8 @@ function WaitSheet({ step, onSave, onDelete, onClose }) {
 function HabitsTab({ routine, onEdit }) {
   const blank = () => ({
     kind: 'habit', isNew: true,
-    draft: { id: newId('habit'), name: '', detail: '', time: '', categoryId: routine.categories[0].id, remind: null, warn: '' },
+    draft: { id: newId('habit'), name: '', detail: '', time: '', categoryId: routine.categories[0].id,
+             remind: null, warn: '', icon: '', duration: 0 },
   })
 
   return (
@@ -511,6 +842,10 @@ function HabitSheet({ routine, setRoutine, editing, onClose, onToast }) {
   /* Remembered so toggling the switch off and straight back on does not silently
      discard the time you already typed. Local only — never stored. */
   const [lastTime, setLastTime] = useState(editing.draft.time || '08:00')
+  /* Starts open only when there is already a glyph to see. A new habit gets the
+     collapsed version, which keeps the name field and the category chips on the
+     first screen of the sheet where they belong. */
+  const [glyphOpen, setGlyphOpen] = useState(!!editing.draft.icon)
   const set = patch => setD(prev => ({ ...prev, ...patch }))
 
   /* Which weekdays could this habit even reach? Only ones with a routine
@@ -556,6 +891,33 @@ function HabitSheet({ routine, setRoutine, editing, onClose, onToast }) {
           ))}
         </div>
       </Field>
+
+      {/* HOW LONG IT TAKES, not when it happens — the two get confused and they
+          are unrelated. A duration is what the step costs you; a time is where
+          it sits on the clock, which is the toggle further down and is rare.
+          0 means "not measured" and is the default: the day's total is only
+          worth showing when the numbers in it were actually chosen. */}
+      <Field label="How long it takes" hint={d.duration > 0 ? formatWait(d.duration) : 'Optional — leave at 0 if it is not worth timing.'}>
+        <div className="chip-row">
+          {[0, 1, 2, 5, 10, 15, 30, 45, 60, 90].map(m => (
+            <Chip key={m} active={m === (d.duration || 0)} onClick={() => set({ duration: m })}>
+              {m === 0 ? '—' : `${m}m`}
+            </Chip>
+          ))}
+        </div>
+      </Field>
+
+      {/* The glyph. Collapsed behind a toggle because most habits never get one
+          and a sixty-icon grid open by default would push every field below it
+          off the first screen of the sheet. */}
+      <Toggle
+        checked={glyphOpen}
+        onChange={setGlyphOpen}
+        label="Glyph"
+        hint={d.icon ? `Currently ${d.icon}.` : 'Optional — falls back to a plain dot.'}
+      >
+        <IconPicker value={d.icon || ''} onChange={icon => set({ icon })} groups={ICON_GROUPS} />
+      </Toggle>
 
       {/* MOST HABITS HAVE NO TIME, and that is the default.
           STACK is a stack: a pile you work through in the order you arranged,

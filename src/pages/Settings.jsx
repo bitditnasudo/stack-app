@@ -39,6 +39,7 @@ export default function Settings() {
   const navigate = useNavigate()
   const {
     state, routine, exportBackup, importBackup, resetAll,
+    setSettings, setProfile,
     sync, connectGoogle, disconnectGoogle, syncNow, folderUrl,
   } = useStore()
   const [perm, setPerm] = useState(() => notificationPermission())
@@ -106,6 +107,41 @@ export default function Settings() {
   return (
     <div className="main-content">
       <PageHeader title="Settings" />
+
+      {/* ── You ───────────────────────────────────────────────────────────────
+          Everything the first-run flow asked for, in one place, so a device
+          that skipped onboarding — or one that upgraded straight past it and
+          was never asked — has somewhere to answer.
+
+          THE WAKE/SLEEP PAIR IS WHAT THE HOME BAR MEASURES AGAINST. Until both
+          are set, `dayProgress` returns null and the dashboard shows the ring
+          alone rather than a bar sitting at a default nobody chose. */}
+      <SectionHead title="You" />
+      <Card>
+        <Field label="Name" hint="Used for the greeting on Home. Nothing else reads it.">
+          <input
+            value={state.profile?.name || ''}
+            placeholder="Your name"
+            maxLength={40}
+            onChange={e => setProfile({ name: e.target.value.slice(0, 40) })}
+          />
+        </Field>
+        <div className="field-row">
+          <Field label="I wake up at">
+            <input type="time" value={state.settings.wakeTime || ''}
+                   onChange={e => setSettings({ wakeTime: e.target.value })} />
+          </Field>
+          <Field label="I go to bed at">
+            <input type="time" value={state.settings.sleepTime || ''}
+                   onChange={e => setSettings({ sleepTime: e.target.value })} />
+          </Field>
+        </div>
+        <p className="prose muted" style={{ fontSize: 'var(--fs-xs)', marginBottom: 0 }}>
+          {state.settings.wakeTime && state.settings.sleepTime
+            ? 'Home shows how much of your waking day has gone beside how much of your stack is done.'
+            : 'Set both to see the “day elapsed” bar on Home. A bedtime after midnight is fine.'}
+        </p>
+      </Card>
 
       {/* ── Routine ───────────────────────────────────────────────────────────
           Above reminders, because reminders are DERIVED from it: this is the

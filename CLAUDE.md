@@ -114,6 +114,33 @@ shared template:
 | `--on-dark-veil` | the fill behind `.tag-on-dark`. A white veil on a *bright* card leaves the chip invisible; which direction it goes is the theme's call, not `index.css`'s |
 | `--heat-ink` | the heatmap ramp used to switch inks halfway up (`--brand-deep` → `--on-brand`). That crossover is theme-specific and lands on a different step on dark, so the ramp went illegible in the middle. The top alpha also drops .80 → .72, which is what lets one ink clear AA across all five steps |
 
+### The identity palette
+
+`PALETTE` in `routine.js` is the reference set: **Inchworm `#B1FA63`, Orange
+`#FE7733`, Pale Violet `#B2A1FF`, American Silver `#D1D1D1`, Bright Snow
+`#FFFFFF`**. It is a literal-hex list rather than semantic tokens, which is the
+same exception the kit already makes for Budget's account colours: a category's
+colour is identity chosen by the user, with no status to encode.
+
+**Gunmetal `#243837` is on the reference palette and is NOT in `PALETTE`, on
+purpose.** `.mood`, `.cat-chip` and `.week-pill` all ink WITH the colour they
+wash, so a near-black entry is invisible in every one of them — measured at
+1.31:1, 1.30:1 and 1.53:1 against the page. It is exported as `REST_COLOR` and
+tokenised as `--rest-fill` / `--rest-ink` instead, used the one way it works: a
+**solid fill under light ink, never a wash**, where it measures 12.38:1 — better
+than any palette entry manages.
+
+That is what makes a rest day distinguishable *by construction* rather than by
+convention: the tone it uses cannot be put on the workload ramp at all.
+`contrast.mjs` asserts it stays unusable as a wash, so the next person to reach
+for "but it's in the reference palette" is caught by the gate rather than by a
+screenshot.
+
+One honest caveat the formula cannot catch: **American Silver and Bright Snow
+are both near-neutral** and are the one pair a user can mistake for each other
+at chip size. They pass every contrast check. Prefer the first three for a new
+category.
+
 **Every number above is measured.** All 47 pairings the app actually renders
 were checked with the WCAG formula against *these* surfaces, including the
 alpha-composited ones (a heat cell is brand at an alpha over `--surface`, so the
@@ -127,7 +154,7 @@ keep in step any more — see "Not a PWA".)
 
 ---
 
-## Domain — what the app actually models (SCHEMA v2)
+## Domain — what the app actually models (SCHEMA v3)
 
 **The protocol is DATA the user edits, not code.** Two files, and the split
 matters:
@@ -141,21 +168,56 @@ matters:
 
 ```js
 routine = {
-  version: 2,
+  version: 3,
   categories: [{ id, label, color }],    // workout · supplement · skincare · leisure
-  habits:     [{ id, name, detail, time, categoryId, remind, warn }],
-  templates:  [{ id, title, color, steps: [Step] }],
+  habits:     [{ id, name, detail, time, categoryId, remind, warn,
+                 icon, duration }],
+  templates:  [{ id, title, color, rest, steps: [Step] }],
   week:       [t0 … t6],                 // weekday → template id (or null)
+  weekColor:  [c0 … c6],                 // weekday → mood colour override
 }
 
-Step = { id, kind:'habit', habitId } | { id, kind:'wait', minutes, note }
+Step = { id, kind:'habit', habitId, time } | { id, kind:'wait', minutes, note }
 ```
+
+### What v3 changed, and why each change forced the next
+
+These are one change wearing four hats. Read them in order or none of them
+makes sense.
+
+1. **A habit may appear in one day more than once.** v2's `addHabitStep`
+   refused a duplicate, so "a glass of water, four times" was inexpressible —
+   and the shipped library worked around it by carrying the same item twice
+   under two ids (`sk_am_cleanse` / `sk_pm_cleanse` are both "LUMACA
+   Cleanser"). **Those duplicates ARE the workaround**, which is why removing
+   them and allowing repeats had to happen in the same version.
+
+2. **Completion is keyed by STEP id, not habit id.** Forced by (1): if one
+   habit occupies two rows, a tick has to say which row. See the contract
+   section below — the old keys still resolve, nothing was orphaned.
+
+3. **A step may override its habit's time** (`step.time`: `null` inherits,
+   a string overrides, `''` means "no time on this occurrence"). Forced by (1)
+   as well: merging the AM and PM cleanse into one habit would otherwise have
+   destroyed the 06:30 / 22:00 split, because a habit holds one `time`. With
+   the override, one habit sits at both times and **both reminders survive** —
+   `verify.mjs` asserts exactly that.
+
+   `remind` deliberately stays on the HABIT. It is a lead time ("ten minutes
+   before"), which is a property of the thing rather than of the occurrence, so
+   every step of that habit inherits it and fires against its own clock.
+
+4. **A template can be flagged `rest`, and a weekday can override its
+   template's colour** (`weekColor`). Both are display-only — see the
+   per-day-override note under THE WEEK below.
 
 ### Three ideas, deliberately separate
 
-1. **A HABIT is a thing you do** — a name and a category. It knows nothing about
-   which days it runs. That is what makes it reusable: "Creatine" is one habit
-   whether it appears on three days or seven. **It does not store its days** —
+1. **A HABIT is a thing you do** — a name, a category, a glyph and how long it
+   takes. It knows nothing about which days it runs. That is what makes it
+   reusable: "Creatine" is one habit whether it appears on three days or seven,
+   and as of v3 whether it appears once or four times in the same day.
+   **It does not store its days** —
    `habitDays()` derives them from the week. Storing them would duplicate the
    templates and drift.
 
@@ -186,9 +248,23 @@ Step = { id, kind:'habit', habitId } | { id, kind:'wait', minutes, note }
 
 3. **THE WEEK is seven slots**, each pointing at a template. Mon/Wed/Fri sharing
    one "Gym" is the entire reason templates exist — build once, edit once. Two
-   days that must differ need two templates. **There are no per-day overrides**;
-   that was considered and rejected as the place this kind of model gets
-   confusing.
+   days that must differ need two templates. **There are still no per-day STEP
+   overrides**; that was considered and rejected as the place this kind of model
+   gets confusing.
+
+   **`weekColor` is the one exception, and it is deliberately not a step
+   override.** A day's mood colour is picked per day, starting from its
+   template's colour and diverging only when the user picks. It has to live on
+   the WEEK rather than on the template for the same reason the rule above
+   exists: Mon/Wed/Fri share one "Gym", so writing the colour back to the
+   template would silently recolour two other days. Nothing about what a day
+   *contains* is overridable, and that has not moved.
+
+   **`rest` is a flag on the template, not a step count.** A rest day can hold a
+   full skincare routine; what it means is "no work is scheduled". It cannot be
+   inferred — a nine-step rest day and a nine-step light gym day are the same
+   number and completely different days — which is why the week strip needs it
+   as a flag to colour rest apart from the workload ramp.
 
 ### What v1 was, and the rule that did NOT survive
 
@@ -201,18 +277,65 @@ enum, and the single most bug-prone thing in the file.
 ones Sunday has. The constraint is gone rather than solved — so the old warning
 about never deriving one flag from the other no longer applies to anything.
 
-### THE CONTRACT THAT DID SURVIVE — habit ids
+### THE CONTRACT, AND HOW IT SURVIVED THE MOVE TO STEP IDS
 
-Completion persists as `{ [habitId]: true }` per day, going back to the GitHub
-Pages build. **`habit.id` is the same string `task.id` was.** The seed
-reproduces the original fifteen exactly and `migrateV1()` carries every id
-across unchanged. `verify.mjs` asserts both, and asserts that no id referenced by
-history fails to resolve. **Never rename or reuse one.**
+**`habit.id` is still the same string `task.id` was.** The seed reproduces the
+original fifteen exactly, `migrateV1()` carries every id across unchanged, and
+`verify.mjs` asserts both. **Never rename or reuse one.**
 
-### The v1 → v2 migration
+What changed is what a day log is keyed BY. Completion persisted as
+`{ [habitId]: true }` from the GitHub Pages build until v3; it is
+`{ [stepId]: true }` now, because a habit can occupy two rows of one day and a
+habit id cannot say which. **No history was rewritten to achieve that**, and
+three separate mechanisms are why:
 
-Lives at the bottom of `routine.js`. v1 scheduled by overlapping day types, v2 by
-one template per weekday, so it works forward from the only thing both agree on:
+- **`stepDoneIn()` reads both shapes.** A habit-id key counts against the FIRST
+  step of that habit in the day. That is exact rather than a guess: no version
+  before v3 could put a habit in a day twice. It is scoped to the first, so a
+  repeat added later does not arrive pre-ticked.
+- **A day is only rewritten when the user touches it.** Toggling a step drops
+  the legacy key as the step key takes over. Days nobody opens are left alone —
+  they already read correctly, and rewriting them would be churn with a chance
+  of loss and no upside.
+- **The one-time dedupe moves ticks rather than orphaning them.**
+  `rewriteCheckedIds()` maps each removed habit id onto the exact step it
+  became, resolved through THAT DAY's template — so a tick logged under
+  `sk_pm_cleanse` lands on the Gym day's evening step on a Monday and on the
+  Rest day's step on a Tuesday. Where no step resolves (the day's template was
+  since reassigned or deleted) it falls back to the surviving habit id, which
+  `stepDoneIn` still reads. It never drops one.
+
+**Read a day log through `stepDoneIn`, never by indexing `checked` directly.**
+An `if (checked[x])` anywhere else is a screen that silently disagrees with
+`useToday` about every day logged before this version.
+
+### The library dedupe — a one-time migration, not a feature
+
+Runs once per device behind `settings.libraryDeduped` (which **defaults false**,
+unlike `onboardingDone`, because every existing device is exactly what it is
+there to clean up). It merges habits that agree on **name AND category** —
+name alone would fold a "Walk" under Leisure into a "Walk" under Workout.
+
+On the shipped library it takes 15 habits to 12, and the measured outcome is
+that **nothing is lost**: no day loses a step, both the 06:20 and 21:50
+reminders survive, and logged ticks move onto the right occurrence. All of that
+is asserted in `verify.mjs`.
+
+**Do not build ongoing duplicate prevention.** Creating two habits with the same
+name afterwards is allowed and is the user's business. The one thing that is NOT
+optional is that every path introducing the seed folds it the same way —
+`resetRoutine()` and onboarding both call `dedupeLibrary()`, because the seed
+still carries the AM/PM pairs (its ids are the frozen contract above) and a
+"Reset routine" button that quietly reinstates the workaround would be worse
+than no button.
+
+### The v1 → v3 migration
+
+Lives at the bottom of `routine.js`, and it emits a v3 document **directly**
+rather than a v2 one that is then upgraded — the two upgrades touch the same
+fields, and running them in sequence means two places to keep the id contract
+in. v1 scheduled by overlapping day types, v3 by one template per weekday, so it
+works forward from the only thing both agree on:
 **what each of the seven weekdays actually contained.** It replays v1's rules per
 weekday, then folds weekdays with identical step lists into one shared template —
 which is exactly how Mon/Wed/Fri arrive as a single "Gym" rather than three
@@ -235,13 +358,16 @@ totals untouched, Mon/Wed/Fri folded, waits converted.**
 
 ### Derived, not hand-maintained
 
-- **The day badge** is simply the template's title and colour.
-- **Reminders** come from `notifScheduleFor()` — each habit with a time and a
-  `remind` fires that many minutes before, on exactly the weekdays its templates
-  cover. **Habits sharing a fire time merge into ONE notification**: three
+- **The day badge** is the template's title, and its colour comes from
+  `dayColorFor()` — the day's own override, else the template's, and always
+  `REST_COLOR` on a rest day.
+- **Reminders** come from `notifScheduleFor()`, which now walks the **steps**
+  rather than the habits. That is what lets one "LUMACA Cleanser" produce the
+  two reminders the two separate habits used to: each step carries its own
+  effective time, and `habit.remind` is the lead time applied to all of them. **Habits sharing a fire time merge into ONE notification**: three
   separate buzzes at 06:20 is three chances to dismiss the whole morning. Do not
   reintroduce a hand-kept reminder list.
-- **The Overview split** is one bar per category with a step today.
+- **The Home split** is one bar per category with a step today.
 - **Waits are not achievements.** A day's steps include them; its SCORE counts
   only habit steps. Folding waits into the denominator would make a day with
   four gaps score lower than the same day with none.
@@ -261,6 +387,25 @@ totals untouched, Mon/Wed/Fri folded, waits converted.**
   global dedupe in `normaliseRoutine` silently deleted 12 of Active's 17 steps
   on load. A step is addressed as (template, step); scope the dedupe that way.
 
+### Glyphs — one set, and why the registry exists
+
+**Lucide, and only Lucide.** MIT, actively maintained, and already the app's
+icon dependency, so standardising cost nothing; mixing a second set would cost
+consistency immediately, because two sets never agree on stroke weight or
+optical size and a fifteen-row stack is where that shows.
+
+`src/lib/icons.js` holds an explicit, grouped import list rather than indexing
+the `lucide-react` namespace by name. A habit stores its glyph as a NAME
+(`'Dumbbell'`) because a routine goes through JSON, Drive sync and a backup
+file — a component reference survives none of those — and resolving that name
+dynamically would defeat tree-shaking, shipping all ~1500 icons. The list
+doubles as the picker's contents; adding one is two lines.
+
+A glyph is **recognition, not identity**. Every row still carries its name, so
+`iconFor()` falls back habit → category → a plain dot and never returns null:
+one ragged row in a list of fifteen looks broken for a reason the user cannot
+see.
+
 ### Domain facts worth not re-deriving
 
 - **Ablazor** is Peptan® collagen. Pre-workout timing is the clinically
@@ -279,8 +424,30 @@ totals untouched, Mon/Wed/Fri folded, waits converted.**
 
 ## First run
 
-`/welcome`, three screens: what STACK is → connect Google Drive → build your
-week (start from the example week, start empty, or skip straight in).
+`/welcome`, **five screens**, cheapest question first:
+
+| # | Screen | Writes |
+|---|---|---|
+| 0 | Name | `profile.name` — the Home greeting, and nothing else reads it |
+| 1 | Connect Google Drive | nothing; skippable |
+| 2 | Wake and sleep, on two scroll wheels | `settings.wakeTime` / `sleepTime` |
+| 3 | Which weekday to build first | passed on as `?day=N` |
+| 4 | Build your week: seed / blank / straight in | the routine |
+
+**Everything is committed in ONE write, at the end.** Writing each answer as it
+is given leaves a flow abandoned on screen 3 half-configured with
+`onboardingDone` still false, so the next launch asks again and overwrites what
+it already had.
+
+**Every screen can be walked past.** `dayProgress()` returns null for an unset
+time and Home omits the bar rather than inventing a default; the greeting falls
+back to "Hello". A first-run flow that will not let you in is one people
+force-quit. Settings has a "You" card carrying the same three fields, which is
+where a device that skipped — or upgraded straight past — answers them.
+
+**Step 3 is a real choice, not a question with no consequence.** It hands
+`?day=N` to `/routine`, which opens that weekday's builder on arrival and then
+CONSUMES the param, so a reload does not reopen a sheet the user closed.
 
 **`settings.onboardingDone` DEFAULTS TRUE.** That is what stops every existing
 device seeing the flow on upgrade — saved state spreads over the default and
@@ -307,12 +474,15 @@ src/
   components/
     AppShell.jsx         nav (pill bar ⇄ sidebar) + PageHeader — template
     UI.jsx               the kit + STACK: StepCard WaitCard Ring Heatmap,
-                         DayPicker ColorPicker EditRow
+                         DayPicker ColorPicker EditRow, and the v3 additions —
+                         WeekPills StatCard CardGrid MeterRow TimeWheel
+                         IconPicker
     Signature.jsx        footer mark — template, unchanged
   lib/
-    routine.js           ★ THE ENGINE — v2 schema, sequencing, reminders,
-                         validation, and the v1→v2 migration
+    routine.js           ★ THE ENGINE — v3 schema, sequencing, reminders,
+                         validation, the library dedupe, and the v1→v3 migration
     protocol.js          the SEED routine, plus blankRoutine() for first run
+    icons.js             the curated Lucide set + the habit glyph resolver
     colorUtils.js        readable ink on a runtime colour (category fills)
     dates.js             local date keys, Monday-first weeks. Never UTC
     weeks.js             day logs → a week + its stats
@@ -321,19 +491,25 @@ src/
     notifications.js     permission + in-page scheduling (schedule passed IN)
     useToday.js          the one derivation of today's sequence and score
   pages/
-    Onboarding.jsx       ★ first run — welcome, Drive, build your week
+    Onboarding.jsx       ★ first run — name, Drive, wake/sleep, start day, week
     Today.jsx            the day as a flat coloured sequence
-    Overview.jsx         ring, by-category split, this week
+    Overview.jsx         ★ HOME — greeting, week pills, both meters, three cards
+                         (the file keeps its name; the tab and route do not —
+                         see "Navigation" below)
     Recap.jsx            any week, navigable backwards
-    Routine.jsx          ★ the editor — Week / Habits / Categories
+    Routine.jsx          ★ the editor — Week / Routines / Habits / Categories
     Settings.jsx         routine link, reminders, Drive, backup, erase, stamp
     AuthCallback.jsx     where Google drops the token
-verify.mjs               100 domain + engine + migration assertions
+verify.mjs               183 domain + engine + migration assertions
 ```
 
 ### Navigation is four tabs, and four is the ceiling
 
-`Today · Overview · Recap · Settings`. At four the nav bar marks itself dense:
+`Today · Home · Recap · Settings`. **The tab reads "Home"; the route is still
+`/overview` and the file is still `Overview.jsx`** — a path is an address, and
+renaming one breaks every link that ever pointed at it for a word nobody sees.
+
+At four the nav bar marks itself dense:
 inactive tabs drop to icons, the active tab keeps its label inside its pill.
 Five would overflow. The old app's separate "Notify" page was a permission
 button plus a read-only schedule — settings content wearing a tab — so it was
@@ -350,6 +526,15 @@ them.
 **`/routine` is a sub-page, not a fifth tab** — the bar is full at four. It is
 reached from the sliders icon on Today (where you notice a step is missing) and
 from the top of Settings (where you go looking for it).
+
+**The editor itself went from three tabs to four**, which is the `Segmented`
+control's own ceiling: `Week · Routines · Habits · Categories`. Routines earned
+one because a template gained a life of its own — before v3 it was reachable
+only THROUGH a weekday that ran it, so one sitting on no day could be created
+and then never found again, and "rename" meant opening a twenty-step sequence
+editor to retype one field. The old "Not in the week" list at the foot of the
+Week tab existed to paper over exactly that; it is now a one-line pointer at the
+tab that holds every routine whether or not a day runs it.
 
 Two density rules came out of a critique pass in v2.2, both measured:
 
@@ -373,8 +558,11 @@ Day logs are stored as the template's `items` array with `id` = the local date
 key:
 
 ```js
-{ id: '2026-08-10', checked: { taskId: true }, total: 15, updatedAt, createdAt }
+{ id: '2026-08-10', checked: { stepId: true }, total: 15, updatedAt, createdAt }
 ```
+
+`checked` was keyed by **habit** id until v3 and both shapes are still read —
+see "THE CONTRACT" above before touching anything that reads it.
 
 That choice is deliberate: it means the template's conflict-safe `mergeStates`
 (union by id, newest `updatedAt` wins, tombstones survive) is *already* the
@@ -681,9 +869,16 @@ Two things that also stayed and look like PWA leftovers but are not:
   before claiming anything.
 - **Runtime colour is NOT covered by the theme's measurements.** `theme.css`
   records 47 pairings of the theme's own colours; `.mood`, `.cat-chip`,
-  `.week-slot` and `.step-card` colour themselves from user data, and three of
-  them shipped broken in v2.3 because they were eyeballed against one palette
-  entry instead. `scripts/contrast.mjs` exists to stop that: every palette
+  `.week-slot`, `.step-card`, `.week-pill` and `.stat-card` colour themselves
+  from user data, and three of them shipped broken in v2.3 because they were
+  eyeballed against one palette entry instead.
+
+  **It caught a real one in v3 too, which is the argument for the gate.** The
+  week pill's workload ramp originally ran to a full-strength fill, at which
+  point a pill IS the palette entry and near-white `--text` on Inchworm measures
+  **1.12:1** — invisible. `MAX_WASH` is 0.34 because that is the last step where
+  the worst entry still clears AA (4.82:1); 0.36 fails. It is a measured
+  ceiling, not a taste call, and both ends of the ramp are asserted. `scripts/contrast.mjs` exists to stop that: every palette
   colour, every context. Two rules it encodes —
   **a gradient has two ends** (`--on-dark-muted` passed at 4.72:1 on one stop
   and failed at 4.02:1 on the other), and **when the ink IS the colour, a
@@ -695,7 +890,7 @@ Two things that also stayed and look like PWA leftovers but are not:
   variant, which makes the backdrop a decision at the call site. Same class of
   bug as the `--heat-ink` crossover. `--on-dark-veil` LIGHTENS for the same
   reason: the chip carries near-black ink, so darkening it hides the text.
-- **Verify before you claim.** `node verify.mjs` runs 100 assertions: the day
+- **Verify before you claim.** `node verify.mjs` runs 183 assertions: the day
   classification, the task-id contract, local date keys, Monday-first weeks, the
   no-data-vs-0% distinction, and the routine engine — the day-type union,
   reorder staying inside its block, the three deletion behaviours, the derived

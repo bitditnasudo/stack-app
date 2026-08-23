@@ -29,7 +29,7 @@ export const STORAGE_KEY = 'stack:v1'
  */
 export const NAV_ITEMS = [
   { icon: ListChecks,    label: 'Today',    to: '/' },
-  { icon: PieChart,      label: 'Overview', to: '/overview' },
+  { icon: PieChart,      label: 'Home',     to: '/overview' },
   { icon: CalendarRange, label: 'Recap',    to: '/recap' },
   { icon: Settings,      label: 'Settings', to: '/settings' },
 ]

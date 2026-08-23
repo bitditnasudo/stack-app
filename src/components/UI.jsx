@@ -6,8 +6,8 @@
    drifted because "just this once" inline styles were never promoted.
    ========================================================================== */
 
-import { useEffect, useRef } from 'react'
-import { X, ChevronUp, ChevronDown, Trash2, Hourglass, Check, Clock } from 'lucide-react'
+import { useEffect, useRef, useMemo } from 'react'
+import { X, ChevronUp, ChevronDown, Trash2, Hourglass, Check, Clock, Sun, Moon } from 'lucide-react'
 import { getContrastText } from '../lib/colorUtils.js'
 
 /* ── Surfaces ────────────────────────────────────────────────────────────── */
@@ -431,8 +431,9 @@ export function EditRow({ title, sub, meta, warn, onEdit, onUp, onDown, onDelete
  * A real <button> with aria-pressed, like the row it replaces: the original was
  * a <div onclick>, keyboard-unreachable and stateless to a screen reader.
  */
-export function StepCard({ done, name, detail, time, category, warn, onToggle }) {
+export function StepCard({ done, name, detail, time, duration, glyph, category, warn, onToggle }) {
   const fill = category?.color || '#888888'
+  const Glyph = glyph
   return (
     <button
       type="button"
@@ -444,11 +445,25 @@ export function StepCard({ done, name, detail, time, category, warn, onToggle })
       <span className="step-check" aria-hidden="true">
         {done && <Check size={16} strokeWidth={3} />}
       </span>
+      {/* The glyph sits BESIDE the tick rather than replacing it. The tick is
+          the state and has to stay in the same place on every row for the list
+          to be scannable; the glyph is identity and changes per row. Merging
+          the two — a glyph that becomes a tick — was tried and made a finished
+          row unidentifiable, which is the row you most often want to undo. */}
+      {Glyph && (
+        <span className="step-glyph" aria-hidden="true">
+          <Glyph size={17} strokeWidth={1.9} />
+        </span>
+      )}
       <span className="step-body">
         <span className="step-name">{name}</span>
         {detail && <span className="step-detail">{detail}</span>}
         <span className="step-meta">
           {time && <span className="step-chip"><Clock size={11} />{time}</span>}
+          {/* A duration of 0 means "not measured", not "instant" — printing
+              "0 min" on two thirds of a stack would be noise claiming to be
+              data. */}
+          {duration > 0 && <span className="step-chip"><Hourglass size={11} />{duration} min</span>}
           {category && <span className="step-chip">{category.label}</span>}
         </span>
         {warn && <span className="step-warn">{warn}</span>}
@@ -526,6 +541,301 @@ export function Toggle({ checked, onChange, label, hint, children }) {
         <span className="toggle-track" aria-hidden="true"><span className="toggle-knob" /></span>
       </button>
       {checked && children && <div className="toggle-body">{children}</div>}
+    </div>
+  )
+}
+
+/* ============================================================================
+   DASHBOARD — the week strip and the card set the Home screen is built from.
+   ============================================================================
+   Same house rule as everything above: these live in the kit with their CSS in
+   index.css, because the alternative is three inline styles on one page that
+   the next theme swap silently strips.
+   ========================================================================== */
+
+/**
+ * The week as a row of vertical pills, one per day.
+ *
+ * WHAT THE SHADE MEANS. A pill's opacity scales with how many steps that day
+ * holds, relative to the busiest day in the week — so the strip reads as a
+ * workload profile at a glance rather than as seven identical chips. It is
+ * RELATIVE ON PURPOSE: an absolute scale would render a nine-step week as seven
+ * pale pills and say nothing, and the useful question is always "which of my
+ * days are the heavy ones", never "how does my week compare to a stranger's".
+ *
+ * IT NEVER STARTS AT ZERO. The ramp runs from `MIN_WASH`, not from transparent,
+ * because a day with one step still exists and a pill you cannot see reads as a
+ * rendering bug.
+ *
+ * AND IT NEVER REACHES ONE. `MAX_WASH` is 0.34, which is not a taste call — it
+ * is the measured ceiling. The pill prints `--text` (near-white) over its day
+ * colour washed onto `--surface`, so the more colour it carries the closer the
+ * background gets to the ink. At full strength a pill IS the palette entry, and
+ * `--text` on Inchworm measures **1.12:1** — invisible. 0.34 is the last step
+ * where the worst entry still clears AA (4.82:1); 0.36 fails.
+ *
+ * The alternative was flipping the ink per pill the way `.step-card` does. It
+ * was rejected: the flip would land mid-strip, so a week would show some pills
+ * with light text and some with dark for no reason a reader can see — the same
+ * crossover bug `--heat-ink` was introduced to fix. One ink, capped ramp.
+ *
+ * `scripts/contrast.mjs` measures BOTH ends. Changing either constant without
+ * re-running it is how this shipped broken the first time.
+ *
+ * REST IS NOT ON THE RAMP. It gets `is-rest` and a solid fill of REST_COLOR
+ * under light ink, because "no work today" is a different KIND of day, not the
+ * bottom of a workload scale. Sorting it onto the ramp put it next to a
+ * genuinely light day and made the two indistinguishable, which is precisely
+ * the reading the strip exists to give.
+ */
+const MIN_WASH = 0.14
+const MAX_WASH = 0.34
+
+export function WeekPills({ days, onSelect }) {
+  const busiest = Math.max(1, ...days.map(d => d.count || 0))
+
+  return (
+    <div className="week-pills" role="list">
+      {days.map(d => {
+        const ratio = (d.count || 0) / busiest
+        const wash = d.count ? MIN_WASH + (MAX_WASH - MIN_WASH) * ratio : 0
+        const Tag = onSelect ? 'button' : 'div'
+        return (
+          <Tag
+            key={d.key}
+            role="listitem"
+            type={onSelect ? 'button' : undefined}
+            onClick={onSelect ? () => onSelect(d) : undefined}
+            className={[
+              'week-pill',
+              d.rest ? 'is-rest' : '',
+              d.isToday ? 'is-today' : '',
+              d.count ? '' : 'is-empty',
+            ].filter(Boolean).join(' ')}
+            style={{ '--pill-color': d.color || 'var(--neutral-line)', '--pill-wash': wash }}
+            aria-current={d.isToday ? 'date' : undefined}
+            title={d.title}
+          >
+            <span className="week-pill-day">{d.label}</span>
+            <span className="week-pill-count">{d.rest ? '—' : (d.count || 0)}</span>
+          </Tag>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * A dashboard tile: a glyph, a big value, and what it is.
+ *
+ * `tone` colours the tile from user data (a category colour, a day colour), so
+ * it takes the same `--step-ink` treatment `StepCard` does rather than assuming
+ * anything about what it was handed. A tile with no tone stays on the surface.
+ *
+ * It is a BUTTON whenever it has an `onClick`, and a plain div otherwise. The
+ * three tiles on Home all navigate, and a div with a click handler is the exact
+ * bug the step rows were fixed for in v2: unreachable by keyboard and with no
+ * pressed state.
+ */
+export function StatCard({ glyph, value, label, sub, tone, wide, children, onClick }) {
+  const Glyph = glyph
+  const Tag = onClick ? 'button' : 'div'
+  return (
+    <Tag
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={`stat-card${wide ? ' is-wide' : ''}${onClick ? ' is-tappable' : ''}${tone ? ' is-toned' : ''}`}
+      style={tone ? { '--tile-fill': tone, '--tile-ink': getContrastText(tone, '#141414', '#FFFFFF') } : undefined}
+    >
+      <span className="stat-card-head">
+        {Glyph && <span className="stat-card-glyph" aria-hidden="true"><Glyph size={18} strokeWidth={1.9} /></span>}
+        <span className="stat-card-label">{label}</span>
+      </span>
+      <span className="stat-card-value">{value}</span>
+      {sub && <span className="stat-card-sub">{sub}</span>}
+      {children}
+    </Tag>
+  )
+}
+
+/** The two-across + one-full-width grid the dashboard cards sit in. A card with
+ *  `wide` spans both columns; everything else pairs up in source order. */
+export function CardGrid({ children }) {
+  return <div className="card-grid">{children}</div>
+}
+
+/**
+ * A labelled progress bar. The plain <Progress> is a bar and nothing else,
+ * which is right inside a card that has already said what it is measuring and
+ * wrong on a dashboard showing two different bars at once — "76%" with no
+ * word beside it is the reading that gets mistaken for the other one.
+ */
+export function MeterRow({ label, value, sub, tone }) {
+  return (
+    <div className="meter-row">
+      <div className="meter-head">
+        <span className="meter-label">{label}</span>
+        <span className="meter-value nums">{sub}</span>
+      </div>
+      <Progress value={value} max={100} tone={tone} />
+    </div>
+  )
+}
+
+/* ============================================================================
+   TIME WHEEL — the wake / sleep picker.
+   ============================================================================
+   A REAL SCROLL WHEEL, not a styled <input type="time">. The native control
+   cannot be made to carry a display-sized numeral on either platform, and this
+   is the one screen where the number is the whole interface.
+
+   IT IS ALSO A REAL LISTBOX. A wheel that only responds to touch-scroll is
+   unreachable by keyboard and silent to a screen reader, which is the same
+   class of bug the step rows were fixed for in v2 — a div with a handler
+   pretending to be a control. Each column is `role="listbox"`, each value is an
+   `option`, arrow keys move the selection, and the scroll position follows the
+   selection rather than being the only way to set it.
+
+   MINUTES GO IN FIVES. This picks the two ends of a day, not an alarm: nobody
+   holds a considered opinion about waking at 06:37, and sixty snap points on a
+   phone-sized wheel is a target you overshoot every time. A value that arrives
+   off the grid (from a backup, or from a later version) is still SHOWN — it is
+   added to the list rather than rounded away underneath the user.
+   ========================================================================== */
+
+const MINUTE_STEP = 5
+const pad2 = n => String(n).padStart(2, '0')
+
+function WheelColumn({ label, values, value, onChange, render }) {
+  const ref = useRef(null)
+  const index = Math.max(0, values.indexOf(value))
+
+  // The selection drives the scroll, never the other way round — so a value
+  // set with the keyboard, or restored from state, lands centred like any other.
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const item = el.children[index + 1]   // +1: the leading spacer
+    if (item) el.scrollTo({ top: item.offsetTop - el.offsetTop - (el.clientHeight - item.clientHeight) / 2, behavior: 'smooth' })
+  }, [index])
+
+  const onKeyDown = e => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+    e.preventDefault()
+    const next = index + (e.key === 'ArrowDown' ? 1 : -1)
+    if (next >= 0 && next < values.length) onChange(values[next])
+  }
+
+  return (
+    <div
+      className="wheel-col" ref={ref}
+      role="listbox" aria-label={label} tabIndex={0}
+      onKeyDown={onKeyDown}
+    >
+      <div className="wheel-pad" aria-hidden="true" />
+      {values.map((v, i) => (
+        <button
+          key={v} type="button"
+          role="option" aria-selected={i === index}
+          className={`wheel-item${i === index ? ' is-active' : ''}`}
+          onClick={() => onChange(v)}
+          tabIndex={-1}
+        >
+          {render ? render(v) : pad2(v)}
+        </button>
+      ))}
+      <div className="wheel-pad" aria-hidden="true" />
+    </div>
+  )
+}
+
+/**
+ * `value` is "HH:MM" (24h, the app's storage format everywhere).
+ * `tone` is 'wake' | 'sleep' — it picks the glyph and the backing wash, so the
+ * two pickers are tellable apart at a glance without reading their labels.
+ */
+export function TimeWheel({ value, onChange, tone = 'wake', label }) {
+  const parsed = /^(\d{1,2}):(\d{2})$/.exec(value || '')
+  const hour = parsed ? Math.min(23, +parsed[1]) : (tone === 'sleep' ? 23 : 7)
+  const min  = parsed ? Math.min(59, +parsed[2]) : 0
+
+  const hours = Array.from({ length: 24 }, (_, i) => i)
+  const mins = useMemo(() => {
+    const base = Array.from({ length: 60 / MINUTE_STEP }, (_, i) => i * MINUTE_STEP)
+    // An off-grid value is shown rather than silently rounded — see the header.
+    return base.includes(min) ? base : [...base, min].sort((a, b) => a - b)
+  }, [min])
+
+  const set = (h, m) => onChange(`${pad2(h)}:${pad2(m)}`)
+
+  return (
+    <div className={`wheel wheel-${tone}`}>
+      <div className="wheel-head">
+        <span className="wheel-glyph" aria-hidden="true">
+          {tone === 'sleep' ? <Moon size={20} strokeWidth={1.8} /> : <Sun size={20} strokeWidth={1.8} />}
+        </span>
+        <span className="wheel-label">{label}</span>
+      </div>
+      <div className="wheel-cols">
+        <WheelColumn label={`${label} hour`} values={hours} value={hour} onChange={h => set(h, min)} />
+        <span className="wheel-colon" aria-hidden="true">:</span>
+        <WheelColumn label={`${label} minute`} values={mins} value={min} onChange={m => set(hour, m)} />
+      </div>
+      {/* The selected value in words, for anything that cannot read a wheel —
+          and as the one place the 24h storage format is shown as the user's own
+          locale renders it. */}
+      <div className="wheel-read" aria-live="polite">{formatClock(`${pad2(hour)}:${pad2(min)}`)}</div>
+    </div>
+  )
+}
+
+function formatClock(hhmm) {
+  const m = /^(\d{2}):(\d{2})$/.exec(hhmm)
+  if (!m) return ''
+  const d = new Date()
+  d.setHours(+m[1], +m[2], 0, 0)
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
+/* ============================================================================
+   ICON PICKER — the glyph grid, grouped.
+   ============================================================================
+   Sixty icons in one flat grid is a search problem, so it is grouped by what
+   the icon is FOR and the headings do the finding. "None" is a real option and
+   comes first: no glyph is the default state for most habits, and a picker you
+   cannot back out of is one that forces a wrong choice.
+   ========================================================================== */
+
+export function IconPicker({ value, onChange, groups }) {
+  return (
+    <div className="icon-picker">
+      <button
+        type="button"
+        className={`icon-swatch${!value ? ' is-active' : ''}`}
+        onClick={() => onChange('')}
+        aria-label="No glyph"
+        aria-pressed={!value}
+      >
+        <X size={16} />
+      </button>
+      {groups.map(g => (
+        <div className="icon-group" key={g.label}>
+          <div className="icon-group-label">{g.label}</div>
+          <div className="icon-grid">
+            {g.icons.map(([name, Glyph]) => (
+              <button
+                key={name} type="button"
+                className={`icon-swatch${value === name ? ' is-active' : ''}`}
+                onClick={() => onChange(name)}
+                aria-label={name} aria-pressed={value === name}
+                title={name}
+              >
+                <Glyph size={18} strokeWidth={1.9} />
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
