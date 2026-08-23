@@ -13,7 +13,8 @@
      2  DAY SHAPE  wake and sleep. Two wheels; this is the only thing on this
                    flow that later screens compute from, and it is what the
                    Home dashboard's "day elapsed" bar measures against.
-     3  START DAY  which weekday you want to build first.
+     3  START DAY  which weekday you want to build first. Handed to the
+                   guided builder as `?day=N`, which walks the week from there.
      4  YOUR WEEK  seed, blank, or straight in.
 
    WHY NAME AND TIMES ARE NOT BLOCKING. Every one of these five can be walked
@@ -157,8 +158,8 @@ export default function Onboarding() {
           <div className="onboard-mark"><User size={28} /></div>
           <h1>Where do we start?</h1>
           <p className="lead">
-            Pick the day you want to build first. You can do the rest in any
-            order afterwards — this only decides where the editor opens.
+            Pick the day you want to build first. STACK walks the rest of the
+            week from there, one day at a time — you can stop whenever you like.
           </p>
 
           <div className="onboard-days" role="radiogroup" aria-label="Start day">
@@ -199,9 +200,11 @@ function WeekChoice({ startDay, onFinish }) {
   const preview = defaultRoutine()
   const seeded = () => dedupeLibrary(defaultRoutine()).routine
 
-  // Land in the editor with the chosen day already open, which is what makes
-  // step 3 a real choice rather than a question with no consequence.
-  const into = `/routine?day=${startDay}`
+  /* Into the GUIDED BUILDER, not the editor. Step 3 picked a starting day and
+     this is what consumes it: the builder walks the week from there, one day
+     per screen. The editor is still one tap away for anyone who would rather
+     jump straight in — that is what "Just take me in" leads past. */
+  const into = `/build?day=${startDay}`
 
   return (
     <>

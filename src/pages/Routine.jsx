@@ -23,26 +23,25 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  ChevronLeft, Plus, RotateCcw, Clock, Hourglass, CalendarOff,
-  ChevronUp, ChevronDown, Trash2, X, Copy, Palette, BedDouble, Repeat2,
+  ChevronLeft, Plus, RotateCcw, Clock, CalendarOff, Copy, Palette, BedDouble,
 } from 'lucide-react'
 import { PageHeader } from '../components/AppShell.jsx'
 import {
-  Card, SectionHead, Button, Tag, Chip, Field, Sheet, Toast, Segmented,
-  DayPicker, ColorPicker, EditRow, Empty, Toggle, IconPicker,
+  Card, SectionHead, Button, Tag, Field, Sheet, Toast, Segmented,
+  DayPicker, ColorPicker, EditRow, Toggle,
 } from '../components/UI.jsx'
+/* The day-sequence UI is SHARED with pages/BuildWeek.jsx — see the header of
+   components/StackBuilder.jsx for why it is not duplicated here. */
+import { SequenceEditor, HabitSheet, blankHabit, daysSummary } from '../components/StackBuilder.jsx'
 import { useStore } from '../lib/store.jsx'
-import { ICON_GROUPS, iconFor } from '../lib/icons.js'
 import {
-  newId, PALETTE, REST_COLOR, DAY_ORDER, DAY_LABELS, ALL_DAYS,
+  newId, PALETTE, REST_COLOR, DAY_ORDER, DAY_LABELS,
   templateForDay, daysForTemplate, resolveSteps, habitDays, isUnusedHabit,
-  formatTime, formatWait, totalWaitMinutes, getCategory, getTemplate,
-  habitCountIn, dayColorFor, setDayColor,
-  upsertHabit, removeHabit, setHabitDays,
+  formatTime, formatWait, totalWaitMinutes, getCategory,
+  dayColorFor, setDayColor,
   upsertCategory, removeCategory,
   upsertTemplate, removeTemplate, renameTemplate, duplicateTemplate,
-  setTemplateDays, assignDay,
-  addHabitStep, addWaitStep, updateStep, removeStep, moveStep,
+  setTemplateDays,
 } from '../lib/routine.js'
 
 /* FOUR TABS, which is the Segmented control's ceiling and not a coincidence:
@@ -58,12 +57,6 @@ const TABS = [
   { value: 'habits', label: 'Habits' },
   { value: 'cats', label: 'Categories' },
 ]
-
-const daysSummary = days => {
-  if (!days.length) return 'No days'
-  if (days.length === 7) return 'Every day'
-  return DAY_ORDER.filter(d => days.includes(d)).map(d => DAY_LABELS[d].slice(0, 3)).join(' ')
-}
 
 export default function Routine() {
   const navigate = useNavigate()
@@ -132,7 +125,7 @@ export default function Routine() {
       {editing?.kind === 'template' && (
         <TemplateSheet
           routine={routine} setRoutine={setRoutine} editing={editing}
-          onClose={close} onToast={say} onEdit={setEditing}
+          onClose={close} onToast={say}
         />
       )}
       {editing?.kind === 'habit' && (
@@ -423,12 +416,11 @@ function DayColorSheet({ routine, setRoutine, day, onClose, onToast }) {
    this screen exists, so it gets the most room and both add buttons sit with
    it rather than in a header somewhere. */
 
-function TemplateSheet({ routine, setRoutine, editing, onClose, onToast, onEdit }) {
+function TemplateSheet({ routine, setRoutine, editing, onClose, onToast }) {
   const isNew = !!editing.isNew
   const [d, setD] = useState(editing.draft)
   const [days, setDays] = useState(
     isNew ? (editing.days || []) : daysForTemplate(routine, editing.draft.id))
-  const [adding, setAdding] = useState(null)   // 'habit' | 'wait'
 
   const live = routine.templates.find(t => t.id === d.id)
   const steps = live ? resolveSteps(routine, live) : []
@@ -466,7 +458,9 @@ function TemplateSheet({ routine, setRoutine, editing, onClose, onToast, onEdit 
         checked={!!d.rest}
         onChange={on => set({ rest: on })}
         label="This is a rest day"
-        hint="Shown in its own colour on the week strip, off the busy-ness scale."
+        hint={days.length > 1
+          ? `Applies to the whole routine — ${daysSummary(days)} all become rest days.`
+          : 'Shown in its own colour on the week strip, off the busy-ness scale.'}
       />
 
       <Field
@@ -478,95 +472,18 @@ function TemplateSheet({ routine, setRoutine, editing, onClose, onToast, onEdit 
 
       <SectionHead
         title="The sequence"
-        sub={steps.length ? `${steps.filter(s => s.kind === 'habit').length} habits · ${formatWait(totalWaitMinutes(steps))} waiting` : undefined}
+        sub={steps.length
+          ? `${steps.filter(s => s.kind === 'habit').length} habit`
+            + `${steps.filter(s => s.kind === 'habit').length === 1 ? '' : 's'}`
+            + ` · ${formatWait(totalWaitMinutes(steps))} waiting`
+          : undefined}
       />
 
-      {!live && (
-        <p className="prose muted" style={{ fontSize: 'var(--fs-xs)' }}>
-          Give it a name and save, then add the steps.
-        </p>
-      )}
-
-      {live && (
-        <>
-          <Card>
-            {!steps.length && <div className="block-empty">Empty. Add the first step below.</div>}
-            {steps.map((s, i) => (
-              <div className="seq-row" key={s.id}>
-                {s.kind === 'wait' ? (
-                  <button className="seq-main is-wait" onClick={() => setAdding({ mode: 'edit-wait', step: s })}>
-                    <Hourglass size={14} />
-                    <span className="grow">{formatWait(s.minutes)}{s.note ? ` — ${s.note}` : ''}</span>
-                  </button>
-                ) : (
-                  /* A BUTTON, like the wait beside it. It shipped as a <span>,
-                     which made this screen reorder-only: the wait rows opened an
-                     editor on tap and the habit rows did nothing, so changing a
-                     habit's time meant leaving the day, finding it on the Habits
-                     tab and coming back. Two rows of one list behaving
-                     differently is the bug; the missing editor is the symptom. */
-                  <button
-                    className="seq-main is-habit"
-                    style={{ '--mood-color': s.category?.color }}
-                    onClick={() => setAdding({ mode: 'edit-step', step: s })}
-                  >
-                    <span className="mood-dot" />
-                    <span className="grow">{s.habit.name}</span>
-                    {/* A habit may sit in this day more than once now, so a row
-                        that is one of several says which — without it, four
-                        identical "Glass of water" rows are indistinguishable
-                        and the reorder arrows read as no-ops. */}
-                    {habitCountIn(live, s.habitId) > 1 && (
-                      <span className="seq-rep" title="Appears more than once in this day">
-                        <Repeat2 size={12} />
-                        {steps.filter(x => x.kind === 'habit' && x.habitId === s.habitId).indexOf(s) + 1}
-                        /{habitCountIn(live, s.habitId)}
-                      </span>
-                    )}
-                    {/* `s.time` is the RESOLVED time — the step's own override
-                        if it set one, the habit's otherwise. Untimed is the
-                        norm, so nothing is printed for it. */}
-                    {s.time && (
-                      <span className={`seq-time${s.time !== (s.habit.time || '') ? ' is-override' : ''}`}>
-                        {formatTime(s.time)}
-                      </span>
-                    )}
-                  </button>
-                )}
-                <span className="seq-actions">
-                  {i > 0 && (
-                    <button className="icon-btn icon-btn-sm" aria-label="Move up"
-                            onClick={() => setRoutine(r => moveStep(r, d.id, s.id, -1))}>
-                      <ChevronUp size={16} />
-                    </button>
-                  )}
-                  {i < steps.length - 1 && (
-                    <button className="icon-btn icon-btn-sm" aria-label="Move down"
-                            onClick={() => setRoutine(r => moveStep(r, d.id, s.id, 1))}>
-                      <ChevronDown size={16} />
-                    </button>
-                  )}
-                  <button className="icon-btn icon-btn-sm icon-btn-danger" aria-label="Remove step"
-                          onClick={() => setRoutine(r => removeStep(r, d.id, s.id))}>
-                    <Trash2 size={16} />
-                  </button>
-                </span>
-              </div>
-            ))}
-          </Card>
-
-          {/* The two add buttons the flow asks for, side by side and in the day
-              they belong to rather than in a global header. */}
-          <div className="field-row">
-            <Button variant="secondary" block onClick={() => setAdding({ mode: 'habit' })}>
-              <Plus size={14} /> Step
-            </Button>
-            <Button variant="secondary" block onClick={() => setAdding({ mode: 'wait' })}>
-              <Hourglass size={14} /> Wait
-            </Button>
-          </div>
-        </>
-      )}
+      <SequenceEditor
+        routine={routine} setRoutine={setRoutine}
+        templateId={d.id} onToast={onToast}
+        ensureExists={ensureExists}
+      />
 
       <Button block disabled={!d.title.trim()} onClick={() => {
         commit(); onToast('Saved.'); if (isNew) onClose()
@@ -584,202 +501,6 @@ function TemplateSheet({ routine, setRoutine, editing, onClose, onToast, onEdit 
           Delete routine
         </Button>
       )}
-
-      {adding?.mode === 'habit' && (
-        <HabitPicker
-          routine={routine} templateId={d.id}
-          onPick={habitId => { ensureExists(); setRoutine(r => addHabitStep(r, d.id, habitId)); setAdding(null) }}
-          onNew={() => { setAdding(null); onClose(); onEdit({ kind: 'habit', isNew: true, intoTemplate: d.id,
-            draft: { id: newId('habit'), name: '', detail: '', time: '', categoryId: routine.categories[0].id,
-                     remind: null, warn: '', icon: '', duration: 0 } }) }}
-          onClose={() => setAdding(null)}
-        />
-      )}
-      {/* Stacked ON the day sheet rather than replacing it, so editing a step
-          does not lose your place in a twenty-step sequence. Same trick the wait
-          editor and the step picker already use. */}
-      {adding?.mode === 'edit-step' && (
-        <StepSheet
-          routine={routine} setRoutine={setRoutine}
-          templateId={d.id} step={adding.step}
-          onEditHabit={() => setAdding({ mode: 'edit-habit', habitId: adding.step.habitId })}
-          onClose={() => setAdding(null)}
-          onToast={onToast}
-        />
-      )}
-      {adding?.mode === 'edit-habit' && (
-        <HabitSheet
-          routine={routine}
-          setRoutine={setRoutine}
-          editing={{ draft: { ...routine.habits.find(h => h.id === adding.habitId) } }}
-          onClose={() => setAdding(null)}
-          onToast={onToast}
-        />
-      )}
-      {(adding?.mode === 'wait' || adding?.mode === 'edit-wait') && (
-        <WaitSheet
-          step={adding.step}
-          onSave={({ minutes, note }) => {
-            if (adding.step) setRoutine(r => updateStep(r, d.id, adding.step.id, { minutes, note }))
-            else setRoutine(r => addWaitStep(r, d.id, minutes, note))
-            setAdding(null)
-          }}
-          onDelete={adding.step ? () => { setRoutine(r => removeStep(r, d.id, adding.step.id)); setAdding(null) } : null}
-          onClose={() => setAdding(null)}
-        />
-      )}
-    </Sheet>
-  )
-}
-
-/* ── One step, inside one day ────────────────────────────────────────────────
-   THE SHEET THAT SEPARATES "THIS OCCURRENCE" FROM "THIS HABIT", which is a
-   distinction that did not exist until a habit could appear twice. Tapping a
-   row used to open the habit editor directly, so changing when the EVENING
-   cleanse happens changed the morning one too — the two were the same record.
-
-   Everything here is about the step. The one button that leaves for the habit
-   says so, and says how many days it would reach. */
-function StepSheet({ routine, setRoutine, templateId, step, onEditHabit, onClose, onToast }) {
-  const habit = step.habit
-  const inherited = habit.time || ''
-  const [override, setOverride] = useState(step.time != null)
-  const [time, setTime] = useState(step.time != null ? step.time : (inherited || '08:00'))
-  const Glyph = iconFor(habit, step.category)
-  const usedIn = habitDays(routine, habit.id)
-
-  const save = () => {
-    setRoutine(r => updateStep(r, templateId, step.id, { time: override ? time : null }))
-    onToast('Saved.'); onClose()
-  }
-
-  return (
-    <Sheet title={habit.name} onClose={onClose}>
-      <Card>
-        <div className="row row-tight">
-          <span className="row-icon" style={{ color: step.category?.color }}><Glyph size={18} /></span>
-          <div className="grow">
-            <b>{habit.name}</b>
-            {habit.detail && <div className="muted">{habit.detail}</div>}
-          </div>
-          {habit.duration > 0 && <Tag tone="neutral"><Hourglass />{formatWait(habit.duration)}</Tag>}
-        </div>
-      </Card>
-
-      {/* THE OVERRIDE IS PER STEP AND IT IS WHAT MADE THE LIBRARY DEDUPE
-          LOSSLESS. One "LUMACA Cleanser" sits at 06:30 in the morning stack and
-          22:00 in the evening one because these two steps each pinned their own
-          time; before that, the only way to express it was two habits with the
-          same name, which is exactly what the cleanup removed. */}
-      <Toggle
-        checked={override}
-        onChange={on => setOverride(on)}
-        label="Give this step its own time"
-        hint={inherited
-          ? `Otherwise it uses ${formatTime(inherited)} from the habit itself.`
-          : 'The habit has no time, so this step has none either.'}
-      >
-        <Field label="At" hint="Only this occurrence. The habit is unchanged.">
-          <input type="time" value={time} onChange={e => setTime(e.target.value)} />
-        </Field>
-      </Toggle>
-
-      <Button block onClick={save}>Save step</Button>
-
-      <Button variant="secondary" block style={{ marginTop: 'var(--sp-2)' }} onClick={onEditHabit}>
-        Edit the habit itself
-      </Button>
-      <p className="prose muted" style={{ fontSize: 'var(--fs-xs)' }}>
-        That changes it everywhere — it&rsquo;s currently on {usedIn.length
-          ? daysSummary(usedIn) : 'no day'}.
-      </p>
-
-      <Button variant="danger" block onClick={() => {
-        setRoutine(r => removeStep(r, templateId, step.id)); onToast('Removed.'); onClose()
-      }}>
-        Remove from this day
-      </Button>
-    </Sheet>
-  )
-}
-
-/** Pick from the library, or peel off to create a new habit. */
-function HabitPicker({ routine, templateId, onPick, onNew, onClose }) {
-  const tpl = getTemplate(routine, templateId)
-
-  /* NOTHING IS FILTERED OUT, and that is the change §3.1 asked for. This list
-     used to hide every habit already in the day, which made "a glass of water,
-     four times" impossible to express — you could add the first and then the
-     library appeared to have lost it. A habit already here shows its count
-     instead, so adding a second is a deliberate act rather than an accident. */
-  return (
-    <Sheet title="Add a step" onClose={onClose}>
-      <Button block onClick={onNew}><Plus size={14} /> New habit</Button>
-
-      {routine.habits.length > 0 && <SectionHead title="From your habits" />}
-      <Card>
-        {!routine.habits.length && <div className="block-empty">No habits yet.</div>}
-        {routine.habits.map(h => {
-          const cat = getCategory(routine, h.categoryId)
-          const n = habitCountIn(tpl, h.id)
-          const Glyph = iconFor(h, cat)
-          return (
-            <button className="seq-row seq-pick" key={h.id} onClick={() => onPick(h.id)}>
-              <span className="seq-main" style={{ '--mood-color': cat?.color }}>
-                <span className="row-icon"><Glyph size={15} /></span>
-                <span className="grow">{h.name}</span>
-                {n > 0 && (
-                  <span className="seq-rep" title={`Already in this day ${n} time${n === 1 ? '' : 's'}`}>
-                    <Repeat2 size={12} />{n}
-                  </span>
-                )}
-                {h.time && <span className="seq-time">{formatTime(h.time)}</span>}
-              </span>
-              <Plus size={16} />
-            </button>
-          )
-        })}
-      </Card>
-      <p className="prose muted" style={{ fontSize: 'var(--fs-xs)' }}>
-        A step lands in the position its time implies, so you rarely have to
-        reorder by hand. Adding one you already have puts it in the day a second
-        time — that is how four glasses of water are four steps, and each gets
-        ticked on its own.
-      </p>
-    </Sheet>
-  )
-}
-
-const WAIT_PRESETS = [1, 2, 3, 5, 10, 15, 20, 30, 45, 60]
-
-function WaitSheet({ step, onSave, onDelete, onClose }) {
-  const [minutes, setMinutes] = useState(step?.minutes ?? 10)
-  const [note, setNote] = useState(step?.note ?? '')
-
-  return (
-    <Sheet title={step ? 'Edit wait' : 'Add a wait'} onClose={onClose}>
-      <Field label="How long" hint={formatWait(minutes)}>
-        <div className="chip-row">
-          {WAIT_PRESETS.map(m => (
-            <Chip key={m} active={m === minutes} onClick={() => setMinutes(m)}>{m}m</Chip>
-          ))}
-        </div>
-      </Field>
-      <Field label="Or exactly">
-        <input type="number" min="0" max="1440" value={minutes}
-               onChange={e => setMinutes(Math.max(0, Math.min(1440, Number(e.target.value) || 0)))} />
-      </Field>
-      <Field label="What for" hint="Optional — shown on the day.">
-        <input value={note} onChange={e => setNote(e.target.value)} placeholder="Bone-dry before retinol" />
-      </Field>
-      <Button block onClick={() => onSave({ minutes, note: note.trim() })}>
-        {step ? 'Save wait' : 'Add wait'}
-      </Button>
-      {onDelete && (
-        <Button variant="danger" block style={{ marginTop: 'var(--sp-2)' }} onClick={onDelete}>
-          Remove wait
-        </Button>
-      )}
     </Sheet>
   )
 }
@@ -787,11 +508,7 @@ function WaitSheet({ step, onSave, onDelete, onClose }) {
 /* ── Habits ──────────────────────────────────────────────────────────────── */
 
 function HabitsTab({ routine, onEdit }) {
-  const blank = () => ({
-    kind: 'habit', isNew: true,
-    draft: { id: newId('habit'), name: '', detail: '', time: '', categoryId: routine.categories[0].id,
-             remind: null, warn: '', icon: '', duration: 0 },
-  })
+  const blank = () => ({ kind: 'habit', isNew: true, draft: blankHabit(routine) })
 
   return (
     <>
@@ -832,172 +549,6 @@ function HabitsTab({ routine, onEdit }) {
         })}
       </Card>
     </>
-  )
-}
-
-function HabitSheet({ routine, setRoutine, editing, onClose, onToast }) {
-  const isNew = !!editing.isNew
-  const [d, setD] = useState(editing.draft)
-  const [days, setDays] = useState(isNew ? [] : habitDays(routine, editing.draft.id))
-  /* Remembered so toggling the switch off and straight back on does not silently
-     discard the time you already typed. Local only — never stored. */
-  const [lastTime, setLastTime] = useState(editing.draft.time || '08:00')
-  /* Starts open only when there is already a glyph to see. A new habit gets the
-     collapsed version, which keeps the name field and the category chips on the
-     first screen of the sheet where they belong. */
-  const [glyphOpen, setGlyphOpen] = useState(!!editing.draft.icon)
-  const set = patch => setD(prev => ({ ...prev, ...patch }))
-
-  /* Which weekdays could this habit even reach? Only ones with a routine
-     assigned — you cannot put a habit on a day that has no day. */
-  const plannedDays = ALL_DAYS.filter(x => !!templateForDay(routine, x))
-  const asked = new Set(days)
-  const willAlsoGet = ALL_DAYS.filter(x => {
-    if (asked.has(x)) return false
-    const t = templateForDay(routine, x)
-    return !!t && days.some(y => routine.week[y] === t.id)
-  })
-
-  const save = () => {
-    setRoutine(r => {
-      let next = upsertHabit(r, { ...d, name: d.name.trim() })
-      if (editing.intoTemplate) next = addHabitStep(next, editing.intoTemplate, d.id)
-      else next = setHabitDays(next, d.id, days)
-      return next
-    })
-    onToast('Saved.')
-    onClose()
-  }
-
-  return (
-    <Sheet title={isNew ? 'New habit' : 'Edit habit'} onClose={onClose}>
-      <Field label="What is it">
-        <input value={d.name} onChange={e => set({ name: e.target.value })}
-               placeholder="Creatine" autoFocus={isNew} />
-      </Field>
-
-      <Field label="Category">
-        <div className="chip-row">
-          {routine.categories.map(c => (
-            <button
-              key={c.id}
-              className={`cat-choice${c.id === d.categoryId ? ' is-active' : ''}`}
-              style={{ '--mood-color': c.color }}
-              onClick={() => set({ categoryId: c.id })}
-              aria-pressed={c.id === d.categoryId}
-            >
-              <span className="mood-dot" />{c.label}
-            </button>
-          ))}
-        </div>
-      </Field>
-
-      {/* HOW LONG IT TAKES, not when it happens — the two get confused and they
-          are unrelated. A duration is what the step costs you; a time is where
-          it sits on the clock, which is the toggle further down and is rare.
-          0 means "not measured" and is the default: the day's total is only
-          worth showing when the numbers in it were actually chosen. */}
-      <Field label="How long it takes" hint={d.duration > 0 ? formatWait(d.duration) : 'Optional — leave at 0 if it is not worth timing.'}>
-        <div className="chip-row">
-          {[0, 1, 2, 5, 10, 15, 30, 45, 60, 90].map(m => (
-            <Chip key={m} active={m === (d.duration || 0)} onClick={() => set({ duration: m })}>
-              {m === 0 ? '—' : `${m}m`}
-            </Chip>
-          ))}
-        </div>
-      </Field>
-
-      {/* The glyph. Collapsed behind a toggle because most habits never get one
-          and a sixty-icon grid open by default would push every field below it
-          off the first screen of the sheet. */}
-      <Toggle
-        checked={glyphOpen}
-        onChange={setGlyphOpen}
-        label="Glyph"
-        hint={d.icon ? `Currently ${d.icon}.` : 'Optional — falls back to a plain dot.'}
-      >
-        <IconPicker value={d.icon || ''} onChange={icon => set({ icon })} groups={ICON_GROUPS} />
-      </Toggle>
-
-      {/* MOST HABITS HAVE NO TIME, and that is the default.
-          STACK is a stack: a pile you work through in the order you arranged,
-          not a timetable. Pinning every habit to a clock made a fifteen-step
-          skincare routine look like fifteen appointments, and it is not — it is
-          one sitting. A time is for the few things that genuinely are
-          clock-bound (sleep, a class, the gym), so it is opt-in.
-
-          There is no `scheduled` field: a habit is scheduled exactly when it has
-          a time. Storing a boolean beside the string would let the two disagree,
-          and then something has to decide which one is lying. */}
-      <Toggle
-        checked={!!d.time}
-        onChange={on => set(on ? { time: lastTime } : { time: '', remind: null })}
-        label="Happens at a set time"
-        hint="Leave off for anything you just work through during the day."
-      >
-        <div className="field-row">
-          <Field label="At">
-            <input
-              type="time"
-              value={d.time}
-              onChange={e => { setLastTime(e.target.value || '08:00'); set({ time: e.target.value }) }}
-            />
-          </Field>
-          <Field label="Remind me">
-            <select
-              value={d.remind == null ? '' : String(d.remind)}
-              onChange={e => set({ remind: e.target.value === '' ? null : Number(e.target.value) })}
-            >
-              <option value="">No</option>
-              <option value="0">On time</option>
-              <option value="5">5 min before</option>
-              <option value="10">10 min before</option>
-              <option value="30">30 min before</option>
-            </select>
-          </Field>
-        </div>
-      </Toggle>
-
-      {!editing.intoTemplate && (
-        <Field
-          label="Which days"
-          hint={plannedDays.length ? undefined : 'No days are planned yet — build a day first, on the Week tab.'}
-        >
-          <DayPicker value={days} onChange={setDays} />
-          {willAlsoGet.length > 0 && (
-            <div className="hint" style={{ color: 'var(--warn-ink)' }}>
-              Also lands on {daysSummary(willAlsoGet)} — those days share a
-              routine with the ones you picked. Split them into their own routine
-              on the Week tab if they need to differ.
-            </div>
-          )}
-        </Field>
-      )}
-
-      <Field label="What to do" hint="Optional — the line under the name.">
-        <textarea rows={2} value={d.detail} onChange={e => set({ detail: e.target.value })}
-                  placeholder="3–5g — take right after workout" />
-      </Field>
-
-      <Field label="Warning" hint="Optional. Keep it for real contraindications.">
-        <input value={d.warn} onChange={e => set({ warn: e.target.value })}
-               placeholder="Never layer with Vitamin C" />
-      </Field>
-
-      <Button block disabled={!d.name.trim()} onClick={save}>
-        {isNew ? 'Add habit' : 'Save'}
-      </Button>
-      {!isNew && (
-        <Button variant="danger" block style={{ marginTop: 'var(--sp-2)' }}
-                onClick={() => {
-                  if (confirm(`Delete “${d.name}”? It comes out of every day that uses it. Your logged history stays.`)) {
-                    setRoutine(r => removeHabit(r, d.id)); onClose(); onToast('Deleted.')
-                  }
-                }}>
-          Delete habit
-        </Button>
-      )}
-    </Sheet>
   )
 }
 

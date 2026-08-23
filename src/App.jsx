@@ -29,6 +29,7 @@ import Overview from './pages/Overview.jsx'
 import Recap from './pages/Recap.jsx'
 import Settings from './pages/Settings.jsx'
 import Routine from './pages/Routine.jsx'
+import BuildWeek from './pages/BuildWeek.jsx'
 import AuthCallback from './pages/AuthCallback.jsx'
 import Onboarding from './pages/Onboarding.jsx'
 
@@ -54,6 +55,10 @@ export default function App() {
                   <Route path="/recap"    element={<Recap />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/routine"  element={<Routine />} />
+                  {/* Inside the shell on purpose: unlike onboarding this is
+                      re-runnable, so the nav has to stay reachable — leaving
+                      halfway is a normal way to use it. */}
+                  <Route path="/build"    element={<BuildWeek />} />
                   <Route path="*"         element={<Navigate to="/" replace />} />
                 </Routes>
               </AppShell>

@@ -80,6 +80,26 @@ export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6]
 
 /** Monday-first, for every day picker in the UI. */
 export const DAY_ORDER  = [1, 2, 3, 4, 5, 6, 0]
+
+/**
+ * The seven weekdays in the order the guided builder walks them: starting at
+ * the day the user chose, then onward through the week and wrapping.
+ *
+ * IT IS A ROTATION, NOT A SORT. Picking Wednesday gives W T F S S M T — the
+ * days keep their real adjacency, so "the next day" in the flow is the next day
+ * in the week. Sorting numerically instead would hand back M T W T F S S with
+ * Wednesday highlighted somewhere in the middle, which is a list of seven days
+ * rather than a route through them.
+ *
+ * An unknown start day falls back to Monday-first rather than returning
+ * something short: the builder walks whatever this returns, so a bad `?day=`
+ * must not be able to skip days.
+ */
+export function weekFrom(startDay) {
+  const at = DAY_ORDER.indexOf(startDay)
+  if (at < 0) return [...DAY_ORDER]
+  return [...DAY_ORDER.slice(at), ...DAY_ORDER.slice(0, at)]
+}
 export const DAY_SHORT  = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 export const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday',
                            'Thursday', 'Friday', 'Saturday']

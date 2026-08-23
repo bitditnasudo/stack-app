@@ -434,6 +434,9 @@ see.
 | 3 | Which weekday to build first | passed on as `?day=N` |
 | 4 | Build your week: seed / blank / straight in | the routine |
 
+Steps 0–3 hand off to **`/build?day=N`** — the guided builder, not the editor.
+"Just take me in" is the one branch that skips it.
+
 **Everything is committed in ONE write, at the end.** Writing each answer as it
 is given leaves a flow abandoned on screen 3 half-configured with
 `onboardingDone` still false, so the next launch asks again and overwrites what
@@ -445,9 +448,50 @@ back to "Hello". A first-run flow that will not let you in is one people
 force-quit. Settings has a "You" card carrying the same three fields, which is
 where a device that skipped — or upgraded straight past — answers them.
 
-**Step 3 is a real choice, not a question with no consequence.** It hands
-`?day=N` to `/routine`, which opens that weekday's builder on arrival and then
-CONSUMES the param, so a reload does not reopen a sheet the user closed.
+**Step 3 is a real choice, not a question with no consequence.** It is the
+start day `/build` walks the week from — `weekFrom(3)` gives W T F S S M T, a
+rotation rather than a sort, so "next day" in the flow is the next day in the
+week.
+
+---
+
+## The guided builder — `/build`
+
+One weekday per screen, in `weekFrom(startDay)` order, with the step count and
+the day number always on screen. It exists because the editor is a REFERENCE
+surface — four tabs, everything reachable, nothing sequenced — which is right
+when you know what you came to change and useless when you have seven empty
+days and no idea where to start.
+
+**It shares the editor's guts and owns only its flow.** The step list, picker,
+wait editor and habit sheet all come from `components/StackBuilder.jsx`. That
+file exists for the same reason `lib/useToday.js` does: two screens needed the
+same thing, and two copies means one of them gets the next fix. What each screen
+keeps is how it presents a template's IDENTITY — the editor puts name, colour
+and days in a sheet with a Save button; the builder puts them inline in a flow
+with a Next button.
+
+**"Run it" and "Copy it" are both offered, and neither is a safe default.**
+Pointing a weekday at an existing template means the two SHARE it — that is what
+makes Mon/Wed/Fri one thing to edit. But the spec's "pre-fills the stack" also
+reads as "copy it and let this day diverge". Copying by default produces seven
+near-identical templates, which is the mess templates prevent; sharing silently
+lets someone build Tuesday and rewrite Monday. So the row carries both verbs and
+names the days each one reaches.
+
+**It commits as you go**, unlike onboarding's single write at the end. There is
+no draft to lose and leaving halfway keeps everything built so far — which is
+the only behaviour a seven-screen flow can have.
+
+**It is re-runnable**, from Settings → Protocol, and routed INSIDE `AppShell` so
+the nav stays reachable. It is a surface for rebuilding the week, not a one-shot
+part of first run.
+
+One consequence worth knowing: **`rest` is a flag on the ROUTINE, the colour is
+per DAY**, and the builder shows both in one card. The rest toggle's hint goes
+dynamic when the routine is shared ("Mon Wed Fri Sat all become rest days"),
+because two controls that look alike and reach differently is exactly how
+someone marks Sunday as rest and quietly does the same to Wednesday.
 
 **`settings.onboardingDone` DEFAULTS TRUE.** That is what stops every existing
 device seeing the flow on upgrade — saved state spreads over the default and
@@ -473,6 +517,11 @@ src/
   main.jsx               entry; service worker registration
   components/
     AppShell.jsx         nav (pill bar ⇄ sidebar) + PageHeader — template
+    StackBuilder.jsx     ★ the SHARED day-sequence UI — SequenceEditor plus
+                         the step picker, step sheet, wait sheet and habit
+                         sheet. Imported by BOTH pages/Routine.jsx and
+                         pages/BuildWeek.jsx; read its header before editing
+                         either of them
     UI.jsx               the kit + STACK: StepCard WaitCard Ring Heatmap,
                          DayPicker ColorPicker EditRow, and the v3 additions —
                          WeekPills StatCard CardGrid MeterRow TimeWheel
@@ -492,6 +541,8 @@ src/
     useToday.js          the one derivation of today's sequence and score
   pages/
     Onboarding.jsx       ★ first run — name, Drive, wake/sleep, start day, week
+    BuildWeek.jsx        ★ the GUIDED builder — one weekday per screen, walked
+                         from the day onboarding picked. /build?day=N
     Today.jsx            the day as a flat coloured sequence
     Overview.jsx         ★ HOME — greeting, week pills, both meters, three cards
                          (the file keeps its name; the tab and route do not —
@@ -500,7 +551,7 @@ src/
     Routine.jsx          ★ the editor — Week / Routines / Habits / Categories
     Settings.jsx         routine link, reminders, Drive, backup, erase, stamp
     AuthCallback.jsx     where Google drops the token
-verify.mjs               183 domain + engine + migration assertions
+verify.mjs               195 domain + engine + migration assertions
 ```
 
 ### Navigation is four tabs, and four is the ceiling
@@ -890,7 +941,7 @@ Two things that also stayed and look like PWA leftovers but are not:
   variant, which makes the backdrop a decision at the call site. Same class of
   bug as the `--heat-ink` crossover. `--on-dark-veil` LIGHTENS for the same
   reason: the chip carries near-black ink, so darkening it hides the text.
-- **Verify before you claim.** `node verify.mjs` runs 183 assertions: the day
+- **Verify before you claim.** `node verify.mjs` runs 195 assertions: the day
   classification, the task-id contract, local date keys, Monday-first weeks, the
   no-data-vs-0% distinction, and the routine engine — the day-type union,
   reorder staying inside its block, the three deletion behaviours, the derived

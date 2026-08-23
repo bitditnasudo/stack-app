@@ -16,8 +16,8 @@ import {
   assignDay, setTemplateDays, setHabitDays,
   habitCountIn, stepDoneIn, dayProgress, effectiveTime, resolveSteps,
   dedupeLibrary, findDuplicateHabits, setDayColor, dayColorFor, isRestDay,
-  renameTemplate, duplicateTemplate, totalDayMinutes, rewriteCheckedIds,
-  ALL_DAYS, PALETTE, REST_COLOR,
+  renameTemplate, duplicateTemplate, totalDayMinutes, rewriteCheckedIds, weekFrom,
+  ALL_DAYS, DAY_ORDER, PALETTE, REST_COLOR,
 } from './src/lib/routine.js'
 import { getLocalDateKey, getWeekDates, getWeekStartMonday } from './src/lib/dates.js'
 import { weekStats } from './src/lib/weeks.js'
@@ -552,6 +552,23 @@ ok(kept.icon === 'Dumbbell' && kept.duration === 45, 'a habit that already has o
 ok(backfillFromSeed(R) === R, 'a routine that needs nothing is returned unchanged, not rebuilt')
 ok(backfillFromSeed(blankRoutine()) === blankRoutine() ||
    backfillFromSeed(blankRoutine()).habits.length === 0, 'a blank routine survives it')
+
+/* ── weekFrom: the guided builder's route through the week ───────────────────
+   A ROTATION, NOT A SORT. Picking Wednesday has to give W T F S S M T, so that
+   "next day" in the flow is the next day in the week. Sorting would hand back
+   Monday-first with Wednesday buried in the middle — a list of seven days
+   rather than a route through them. */
+ok(weekFrom(1).join() === '1,2,3,4,5,6,0', 'starting Monday is the plain Monday-first week')
+ok(weekFrom(3).join() === '3,4,5,6,0,1,2', 'starting Wednesday wraps: W T F S S M T')
+ok(weekFrom(0).join() === '0,1,2,3,4,5,6', 'starting Sunday puts Sunday first')
+for (const d of ALL_DAYS) {
+  const w = weekFrom(d)
+  ok(w.length === 7 && new Set(w).size === 7, `weekFrom(${d}) still covers all seven days exactly once`)
+}
+/* A bad ?day= must not be able to SHORTEN the walk — the builder iterates
+   whatever this returns, so a silent skip would leave days unbuilt. */
+ok(weekFrom(9).join() === DAY_ORDER.join(), 'an out-of-range start falls back to Monday-first')
+ok(weekFrom(undefined).length === 7, 'and so does a missing one')
 
 console.log(fail ? `\n${fail} FAILED` : '\nAll checks passed')
 process.exit(fail ? 1 : 0)

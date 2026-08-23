@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Bell, BellOff, Download, Upload, Trash2, Clock, SlidersHorizontal, ChevronRight,
+  Bell, BellOff, Download, Upload, Trash2, Clock, SlidersHorizontal, ChevronRight, CalendarPlus,
   Cloud, CloudOff, RefreshCw, ExternalLink, AlertTriangle,
 } from 'lucide-react'
 import { PageHeader } from '../components/AppShell.jsx'
@@ -157,6 +157,18 @@ export default function Settings() {
               {routine.templates.length} day{routine.templates.length === 1 ? '' : 's'} ·{' '}
               {routine.categories.length} categories
             </small>
+          </span>
+          <ChevronRight size={18} />
+        </button>
+        {/* The guided builder is re-runnable, not a one-shot part of first run.
+            It is the right surface whenever the week is being rebuilt rather
+            than adjusted — the editor is for "change this one thing", this is
+            for "start again from Monday". */}
+        <button className="list-row nav-row" onClick={() => navigate('/build?day=1')}>
+          <span className="row-icon"><CalendarPlus size={16} /></span>
+          <span className="grow">
+            <b>Build the week step by step</b>
+            <small>One day at a time, from Monday — the guided version.</small>
           </span>
           <ChevronRight size={18} />
         </button>

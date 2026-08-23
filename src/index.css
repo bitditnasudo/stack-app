@@ -387,9 +387,15 @@ button, input, select, textarea { font-family: inherit; }
 /* Eight across, not six: the palette is eight, and at six it wrapped to a
    second row that pushed the day editor's sequence — the thing you opened the
    sheet for — most of a screen further down. */
-.swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+/* auto-fill, NOT a hardcoded column count. This was `repeat(8, 1fr)`, sized to
+   the eight-colour palette that shipped before v3 — when PALETTE dropped to
+   five the swatches kept the eight-wide track, so they rendered at 33px with
+   three empty columns beside them: under the 44px tap floor AND visibly
+   ragged. A count that has to be kept in step with a JS array is a count that
+   drifts; the floor is now the minimum size rather than the palette length. */
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tap), 1fr)); gap: 6px; }
 .swatch {
-  aspect-ratio: 1; border-radius: var(--radius-xs);
+  aspect-ratio: 1; min-height: var(--tap); border-radius: var(--radius-xs);
   border: 2.5px solid transparent; cursor: pointer; padding: 0;
 }
 .swatch.is-selected { border-color: var(--text); }
@@ -1660,3 +1666,21 @@ button, input, select, textarea { font-family: inherit; }
   font-weight: 600; font-size: var(--fs-sm);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+
+/* ── Guided week builder ─────────────────────────────────────────────────── */
+
+/* The "run it or copy it" row. Two verbs plus a name plus a meta line does not
+   fit on one line at 375px, so it wraps — and the buttons stay together on the
+   second row rather than one of them orphaning. */
+.build-pick {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--border);
+}
+.build-pick:first-child { border-top: none; }
+.build-pick-meta { font-size: var(--fs-xs); color: var(--muted); min-width: 0; }
+
+/* The advance button sits above the closing note rather than pinned to the
+   viewport: a sticky footer over a sequence you are actively scrolling covers
+   the last step, which is the one you just added. */
+.build-nav { margin: var(--sp-4) 0 var(--sp-2); }
