@@ -143,7 +143,8 @@ export default function Home() {
             />
             <div style={{ marginTop: 'var(--sp-3)' }}>
               {kind.color
-                ? <span className="mood" style={{ '--mood-color': kind.color }}>
+                ? <span className={`mood${kind.rest ? ' is-rest' : ''}`}
+                        style={{ '--mood-color': kind.color }}>
                     <span className="mood-dot" />{kind.text}
                   </span>
                 : <Tag tone="neutral">{kind.text}</Tag>}

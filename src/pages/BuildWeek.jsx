@@ -53,7 +53,7 @@ import {
 import { SequenceEditor, daysSummary } from '../components/StackBuilder.jsx'
 import { useStore } from '../lib/store.jsx'
 import {
-  newId, PALETTE, REST_COLOR, DAY_LABELS, weekFrom,
+  newId, PALETTE, DAY_LABELS, weekFrom,
   templateForDay, daysForTemplate, resolveSteps, getTemplate,
   dayColorFor, setDayColor, formatWait, totalWaitMinutes, totalDayMinutes,
   upsertTemplate, assignDay, duplicateTemplate, renameTemplate,
@@ -198,7 +198,8 @@ function DayChoice({ routine, setRoutine, day, onToast, onSkip }) {
               const n = t.steps.filter(s => s.kind === 'habit').length
               return (
                 <div className="build-pick" key={t.id}>
-                  <span className="cat-chip" style={{ '--mood-color': t.rest ? REST_COLOR : t.color }}>
+                  <span className={`cat-chip${t.rest ? ' is-rest' : ''}`}
+                        style={{ '--mood-color': t.color }}>
                     <span className="mood-dot" />{t.title || 'Untitled'}
                   </span>
                   <span className="grow build-pick-meta">
@@ -250,7 +251,8 @@ function DayEditor({ routine, setRoutine, day, tpl, onToast, onRename }) {
     <>
       <Card>
         <div className="row row-tight">
-          <span className="cat-chip" style={{ '--mood-color': colour }}>
+          <span className={`cat-chip${tpl.rest ? ' is-rest' : ''}`}
+                style={{ '--mood-color': colour }}>
             <span className="mood-dot" />{tpl.title || 'Untitled'}
           </span>
           <span className="grow muted">

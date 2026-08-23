@@ -51,68 +51,81 @@ lives at `../../VANTARCO APP DATABASE/`. Two documents there are binding:
 
 ### Theme
 
-STACK runs the Vantarco kit on **WINE AFTER DARK**: near-black page, a wine ramp
-lifted to a rose bright enough to carry on it, Sora + Inter. `src/theme.css` is
-still the *only* file that differs from the template in colour, and it still
-differs in values only — every token name and every scale is the kit's.
+STACK runs the Vantarco kit on **INCHWORM ON GUNMETAL**: a Gunmetal page, cards
+that sink into it, an Inchworm brand, Sora + Inter. `src/theme.css` is still the
+*only* file that differs from the template in colour, and it still differs in
+values only — every token name and every scale is the kit's.
 
 **The app is dark-only.** There is no light mode and no `prefers-color-scheme`
-switch. The light WINE set it replaced is preserved whole at the bottom of
-`theme.css` as REFERENCE THEME C, so reverting is a comment swap rather than an
-excavation.
+switch. The previous WINE AFTER DARK set (a rose brand on near-black) is **gone,
+not commented out**: it shared no hue with this palette, so keeping it as a
+"reference theme" was three hundred lines describing a page nobody can return to
+without re-measuring anyway.
 
 ```
---brand      #FF4D6D   rose      primary button, focus ring, progress, ring value
---brand-soft #FF7D93   light     light end of the primary gradient
---brand-deep #FFB3C0   palest    pill fills, AND the ink on --brand-wash
---bg → --bg-2  #131011 → #171314   near-black page, lifting downward
+--brand      #B1FA63   inchworm   primary button, focus ring, progress, ring value
+--brand-soft #C9FD90   light      light end of the primary gradient
+--brand-deep #D8FFAE   palest     pill fills, AND the ink on --brand-wash
+--bg → --bg-2  #243837 → #203331   Gunmetal page, deepening downward
+--surface      #1C2C2B             cards, DARKER than the page — see below
 ```
 
-**Read a token as a ROLE, not as a colour, or this file looks upside-down.** On
-dark, several tokens invert in lightness and the names stay put — that is the
-whole point of the kit:
+**Read a token as a ROLE, not as a colour.** `--brand-deep` is the LIGHTEST
+brand step here; `--on-brand` and `--on-dark` are both near-black, because every
+saturated fill in this theme is bright.
 
-- **`--brand-deep` is the LIGHTEST brand step here.** Its job is "the ramp end
-  that carries `--on-brand`, and the ink on `--brand-wash`". On a white page
-  that job wants a dark wine; on a black page it wants a pale rose. Renaming it
-  would break the one rule that makes a component read the same token in every
-  theme.
-- **`--on-dark` is near-black.** Its job is "ink on a saturated or inverted
-  fill", and on this theme those fills are all bright: the tick inside a
-  completed task ring (`--ok`), the toast (`--text` as a background), and the
-  hero card's brand gradient.
-
-**Brand red vs danger red, again and harder.** On black *both* have to be bright
-to exist at all, so the luminance gap the light theme leaned on is much harder
-to hold. `--danger` measures **1.43:1** against `--brand` — less than the light
-theme's 1.87:1, and that is the honest number. The shortfall is made up with
-hue: danger is pushed to ~22° (from 12°) against the brand's ~350°. Never
-substitute one for the other, and never add a "red" that is neither.
+**THE CARDS ARE DARKER THAN THE PAGE, and that is measured rather than
+stylistic.** `.mood` and `.cat-chip` ink WITH the colour they wash, so their
+contrast is set by how dark the backdrop is. On any surface lighter than
+Gunmetal the worst palette entry (Orange `#FE7733`) measures 3.87:1 and fails at
+*every* wash value including 6% — the wash is not the lever, the backdrop is. At
+`#1C2C2B` it measures 4.63:1 with the component untouched. Cards recede on this
+theme because the palette does not permit them to lift.
 
 Three knock-on changes, all measured, all commented in the file:
 
-- **`--ok` is a lime `#4ADE80`**, not the light theme's forest `#00875A`, which
-  measures 1.9:1 on this page. It is the one status that appears as a *fill
-  under a glyph*, so it is the one that has to be bright — `--on-dark` on it
-  measures 10.75:1.
-- **Shadows are black, not brand-tinted.** The kit's rule ("brand-tinted, never
-  grey — a grey shadow under a tinted page reads as dirt") assumes a light page.
-  With `--brand-rgb` bright, that same rule paints a pink *glow* under every
-  card. `--shadow-brand` keeps the tint, because that one is a glow on purpose.
-- **The radius scale opened to 28 / 18 / 12** from the kit's 22 / 14 / 10. 28 is
-  a deliberate ceiling: past ~32px a `--radius-sm` button inside a `--radius`
-  card starts to look like it is escaping the corner, and the heat cells turn
-  into circles.
+- **`--danger` went back to being RED** (`#FF6B6B`). On WINE it was pushed to
+  orange purely to escape a rose brand it measured 1.43:1 against. The brand is
+  lime now, so that constraint is gone.
+- **`--ok` moved from lime to TEAL** (`#2BD4B4`), and this is the collision this
+  theme has to solve the way WINE had to solve brand-red vs danger-red. The
+  brand IS green now, so a green "success" makes the primary action and the
+  completed state the same colour. Teal sits ~85° from Inchworm — far more
+  separation than WINE ever had between its two reds.
+- **`--on-dark-veil` flipped direction.** On WINE it was a white veil, which
+  lightens a mid-rose card enough to read as a chip. This hero is a pale lime,
+  so the same white veil moved it almost nowhere (1.03:1 / 1.05:1 on the two
+  gradient stops). It darkens here instead. Which direction it goes is the
+  THEME's call, not `index.css`'s — that is the whole reason the token exists.
 
-**Three tokens were added, and they are gaps the kit only reveals once someone
-writes a dark theme for it.** All three are candidates to promote into the
-shared template:
+**Every number above is measured.** All 64 pairings the app renders were checked
+against *these* surfaces, including the alpha-composited ones. If the theme
+changes again, re-measure all of it — a tone that passes on a near-black page
+fails on a mid-dark one, which is the most repeated bug in this family and is
+exactly what the "cards are darker" note is a record of.
 
-| Token | Why it had to exist |
-|---|---|
-| `--on-dark-muted` | `index.css` hardcoded `rgb(255 255 255 / .78)` for the hero card's secondary line — the last colour literal in the kit, and invisible as a bug until a theme made that card bright |
-| `--on-dark-veil` | the fill behind `.tag-on-dark`. A white veil on a *bright* card leaves the chip invisible; which direction it goes is the theme's call, not `index.css`'s |
-| `--heat-ink` | the heatmap ramp used to switch inks halfway up (`--brand-deep` → `--on-brand`). That crossover is theme-specific and lands on a different step on dark, so the ramp went illegible in the middle. The top alpha also drops .80 → .72, which is what lets one ink clear AA across all five steps |
+`--bg` also appears in `index.html` as `theme-color`. Keep the two in step.
+
+#### Two things a DOM audit caught that the gate did not
+
+Both found by walking the rendered DOM and measuring every text node against its
+real backdrop — worth repeating after any theme change, because the gate only
+measures the pairings someone thought to list.
+
+- **A token was measured where it is FILED, not where it RENDERS.**
+  `--muted-2`'s name says "the dimmer step for card text", so it was measured on
+  cards. But `.wait-note` renders it on the PAGE and `.heat-dot.heat-none`
+  renders it on `--neutral-wash` — and this theme's page is *lighter* than its
+  cards, so the card was no longer the worst case. Those two measured 4.26:1 and
+  4.15:1. The gate now checks it on all five backdrops it lands on.
+- **The gate proved a tone unusable and a call site used it anyway.**
+  `contrast.mjs` asserts `REST_COLOR` is unusable as a `.mood` wash (2.25:1) —
+  and `dayKindFor` handed exactly that colour to `.mood` as its `--mood-color`,
+  so the "REST" badge on Recap and Home rendered at 2.25:1. Fixed with a
+  `.mood.is-rest` / `.cat-chip.is-rest` variant that uses the tone the one way
+  it works, a solid fill at 5.34:1 — the same shape of fix as `.mood-on-dark`.
+  **An assertion that a value is unusable is not the same as a guarantee nobody
+  uses it.**
 
 ### The identity palette
 
@@ -510,7 +523,8 @@ back would drop the token before it was stored.
 
 ```
 src/
-  theme.css              tokens — the WINE AFTER DARK set + 3 reference themes
+  theme.css              tokens — the INCHWORM ON GUNMETAL set (no reference
+                         themes: WINE was removed, not commented out)
   index.css              the kit + marked "STACK ADDITIONS" blocks at the end
   app.config.jsx         name, STORAGE_KEY, nav items, brand mark, build stamp
   App.jsx                provider → router → onboarding gate → shell → routes
@@ -919,7 +933,7 @@ Two things that also stayed and look like PWA leftovers but are not:
   migration) and `scripts/contrast.mjs` (WCAG over every runtime colour). Run it
   before claiming anything.
 - **Runtime colour is NOT covered by the theme's measurements.** `theme.css`
-  records 47 pairings of the theme's own colours; `.mood`, `.cat-chip`,
+  records 64 pairings of the theme's own colours; `.mood`, `.cat-chip`,
   `.week-slot`, `.step-card`, `.week-pill` and `.stat-card` colour themselves
   from user data, and three of them shipped broken in v2.3 because they were
   eyeballed against one palette entry instead.
@@ -927,9 +941,16 @@ Two things that also stayed and look like PWA leftovers but are not:
   **It caught a real one in v3 too, which is the argument for the gate.** The
   week pill's workload ramp originally ran to a full-strength fill, at which
   point a pill IS the palette entry and near-white `--text` on Inchworm measures
-  **1.12:1** — invisible. `MAX_WASH` is 0.34 because that is the last step where
-  the worst entry still clears AA (4.82:1); 0.36 fails. It is a measured
-  ceiling, not a taste call, and both ends of the ramp are asserted. `scripts/contrast.mjs` exists to stop that: every palette
+  **1.12:1** — invisible. `MAX_WASH` is the last step where the worst entry
+  still clears AA. It is a measured ceiling, not a taste call, and both ends of
+  the ramp are asserted. **Both ends moved when the theme did** (.14–.34 →
+  .12–.32): those numbers are a property of the SURFACE, not of the component,
+  so they get re-derived on every theme change rather than carried across.
+
+- **The gate is a floor, not a proof.** It measures the pairings someone thought
+  to list. Walking the rendered DOM and checking every text node against its
+  real backdrop found two things it missed — see "Two things a DOM audit caught"
+  under Theme. Do that pass after any theme change. `scripts/contrast.mjs` exists to stop that: every palette
   colour, every context. Two rules it encodes —
   **a gradient has two ends** (`--on-dark-muted` passed at 4.72:1 on one stop
   and failed at 4.02:1 on the other), and **when the ink IS the colour, a

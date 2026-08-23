@@ -96,7 +96,8 @@ export default function Recap() {
                   without one, which made three call sites of one component
                   render two different ways. */}
               {day.kind.color
-                ? <span className="mood" style={{ '--mood-color': day.kind.color }}>
+                ? <span className={`mood${day.kind.rest ? ' is-rest' : ''}`}
+                        style={{ '--mood-color': day.kind.color }}>
                     <span className="mood-dot" />{day.kind.text}
                   </span>
                 : <Tag tone="neutral">{day.kind.text}</Tag>}

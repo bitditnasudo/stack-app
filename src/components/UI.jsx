@@ -567,12 +567,17 @@ export function Toggle({ checked, onChange, label, hint, children }) {
  * because a day with one step still exists and a pill you cannot see reads as a
  * rendering bug.
  *
- * AND IT NEVER REACHES ONE. `MAX_WASH` is 0.34, which is not a taste call — it
- * is the measured ceiling. The pill prints `--text` (near-white) over its day
- * colour washed onto `--surface`, so the more colour it carries the closer the
- * background gets to the ink. At full strength a pill IS the palette entry, and
- * `--text` on Inchworm measures **1.12:1** — invisible. 0.34 is the last step
- * where the worst entry still clears AA (4.82:1); 0.36 fails.
+ * AND IT NEVER REACHES ONE. `MAX_WASH` is the measured ceiling, not a taste
+ * call. The pill prints `--text` (near-white) over its day colour washed onto
+ * `--surface`, so the more colour it carries the closer the background gets to
+ * the ink. At full strength a pill IS the palette entry, and `--text` on
+ * Inchworm measures **1.12:1** — invisible. 0.32 is the last step where the
+ * worst entry still clears AA (4.71:1); 0.34 fails.
+ *
+ * BOTH ENDS MOVED WITH THE THEME. On the previous near-black page the window
+ * was .14–.34; on this one it is .12–.32. The numbers are a property of the
+ * SURFACE, not of the component — which is why they get re-derived every time
+ * the theme changes rather than carried across.
  *
  * The alternative was flipping the ink per pill the way `.step-card` does. It
  * was rejected: the flip would land mid-strip, so a week would show some pills
@@ -588,8 +593,8 @@ export function Toggle({ checked, onChange, label, hint, children }) {
  * genuinely light day and made the two indistinguishable, which is precisely
  * the reading the strip exists to give.
  */
-const MIN_WASH = 0.14
-const MAX_WASH = 0.34
+const MIN_WASH = 0.12
+const MAX_WASH = 0.32
 
 export function WeekPills({ days, onSelect }) {
   const busiest = Math.max(1, ...days.map(d => d.count || 0))

@@ -35,7 +35,7 @@ import {
 import { SequenceEditor, HabitSheet, blankHabit, daysSummary } from '../components/StackBuilder.jsx'
 import { useStore } from '../lib/store.jsx'
 import {
-  newId, PALETTE, REST_COLOR, DAY_ORDER, DAY_LABELS,
+  newId, PALETTE, DAY_ORDER, DAY_LABELS,
   templateForDay, daysForTemplate, resolveSteps, habitDays, isUnusedHabit,
   formatTime, formatWait, totalWaitMinutes, getCategory,
   dayColorFor, setDayColor,
@@ -307,7 +307,8 @@ function TemplatesTab({ routine, setRoutine, onEdit, onToast }) {
               warn={days.length === 0}
               meta={
                 <>
-                  <span className="cat-chip" style={{ '--mood-color': t.rest ? REST_COLOR : t.color }}>
+                  <span className={`cat-chip${t.rest ? ' is-rest' : ''}`}
+                        style={{ '--mood-color': t.color }}>
                     <span className="mood-dot" />{steps} step{steps === 1 ? '' : 's'}
                   </span>
                   {t.rest && <Tag tone="neutral"><BedDouble />Rest</Tag>}

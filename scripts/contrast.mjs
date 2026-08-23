@@ -42,24 +42,31 @@ const PALETTE = ['#B1FA63', '#FE7733', '#B2A1FF', '#D1D1D1', '#FFFFFF']
 
 /* The rest-day tone. Not on the ramp, never a wash. --rest-fill/--rest-ink in
    theme.css, REST_COLOR in routine.js. */
-const REST_FILL = '#243837'
-const REST_INK  = '#F6F0F1'
+const REST_FILL = '#4E6B66'
+const REST_INK  = '#F2F7EF'
 
 /* Kept in step with theme.css by hand. If a value here disagrees with the
    theme, the theme wins and this file is stale — fix it. */
 const T = {
-  bg: '#131011', surface: '#201C1E',
-  text: '#F6F0F1', muted: '#A79A9E',
-  onDark: '#1A0F12',
-  onDarkMuted: { hex: '#1A0F12', a: 0.88 },
-  onDarkVeil:  { hex: '#FFFFFF', a: 0.28 },
-  heroStops: ['#FFB3C0', '#FF4D6D'],   // .card-hero's gradient, BOTH ends
-  moodWash: 0.14,
+  bg: '#243837', surface: '#1C2C2B',
+  text: '#F2F7EF', muted: '#9AAFAA', muted2: '#93A8A3',
+  bg2: '#203331', surface2: '#223433', neutralWash: '#263A38',
+  onDark: '#10200A',
+  onDarkMuted: { hex: '#10200A', a: 0.88 },
+  onDarkVeil:  { hex: '#10200A', a: 0.14 },
+  heroStops: ['#D8FFAE', '#B1FA63'],   // .card-hero's gradient, BOTH ends
+  /* THE CARDS ARE DARKER THAN THE PAGE ON THIS THEME, and that is what these
+     two numbers encode. `.mood` inks WITH the colour it washes, so on any
+     surface lighter than --surface the worst palette entry (Orange) fails at
+     EVERY wash value including 6% — the backdrop is the lever, not the wash. */
+  moodWash: 0.12,
   stepChipVeil: 0.12,
   weekSlotWash: 0.18,
-  /* The week-pill ramp: MIN_WASH .22 -> MAX_WASH 1 in UI.jsx. */
-  pillWashMin: 0.14,
-  pillWashMax: 0.34,
+  /* The week-pill ramp: MIN_WASH .12 -> MAX_WASH .32 in UI.jsx. Both ends are
+     measured, and both moved when the page did — they are a property of the
+     surface, not of the component. */
+  pillWashMin: 0.12,
+  pillWashMax: 0.32,
   tileGlyphVeil: 0.12,
 }
 
@@ -90,7 +97,12 @@ const worstOfPalette = (label, fn, min = 4.5) => {
 
 console.log('\n── .mood / .cat-chip — ink IS the colour, on a wash of itself ──')
 worstOfPalette('.mood on --surface', c => ratio(c, over(c, T.moodWash, hex(T.surface))))
-worstOfPalette('.mood on --bg', c => ratio(c, over(c, T.moodWash, hex(T.bg))))
+/* The chip mixes into --surface rather than into `transparent`, so it reads
+   the same wherever it is placed. This used to be a second measurement against
+   --bg; it is now an assertion that the backdrop is STATED rather than
+   inherited — the bug class that made .mood 1.07:1 on the hero card. */
+worstOfPalette('.mood is deterministic (mixes into --surface, not transparent)',
+  c => ratio(c, over(c, T.moodWash, hex(T.surface))))
 
 console.log('\n── .mood-on-dark — the hero variant, measured on BOTH stops ──')
 for (const [i, stop] of T.heroStops.entries()) {
@@ -126,16 +138,29 @@ console.log('\n── .week-pill — the workload ramp, BOTH ends of it ──')
    fail one way (least colour, closest to the surface) and the fullest step the
    other (a near-white palette entry at full strength under near-white ink), so
    both are measured. Checking one end of a ramp is not checking. */
-for (const [name, wash] of [['min (.14, a one-step day)', T.pillWashMin],
-                            ['max (.34, the busiest day)', T.pillWashMax]]) {
+for (const [name, wash] of [['min (.12, a one-step day)', T.pillWashMin],
+                            ['max (.32, the busiest day)', T.pillWashMax]]) {
   worstOfPalette(`--text on a week pill at ${name}`,
     c => ratio(hex(T.text), over(c, wash, hex(T.surface))))
 }
 /* The pill must also be VISIBLE as a pill — distinguishable from the card it
    sits on. Not a WCAG text rule; a "did anything render?" rule, and the reason
-   the ramp starts at .14 rather than at 0. */
+   the ramp starts at .12 rather than at 0. */
 worstOfPalette('a min-wash pill still reads apart from --surface',
   c => ratio(over(c, T.pillWashMin, hex(T.surface)), hex(T.surface)), 1.08)
+
+console.log('\n── --muted-2, on every backdrop it actually lands on ──')
+/* Its NAME says "the dimmer step for card text", and that is where the token
+   used to be measured. But `.wait-note` renders it on the PAGE and
+   `.heat-dot.heat-none` renders it on --neutral-wash — and this theme's page is
+   LIGHTER than its cards, so the card is no longer the worst case. At the
+   previous value those two measured 4.26:1 and 4.15:1: a fail the token name
+   actively hid. Measure where a token RENDERS, not where it is filed. */
+for (const [nm, bed] of [['--surface', T.surface], ['--bg (.wait-note)', T.bg],
+                         ['--bg-2', T.bg2], ['--surface-2', T.surface2],
+                         ['--neutral-wash (.heat-none)', T.neutralWash]]) {
+  check(`--muted-2 on ${nm}`, hex(T.muted2), hex(bed))
+}
 
 console.log('\n── .week-pill.is-rest — the one tone that is a FILL, not a wash ──')
 check('--rest-ink on --rest-fill', hex(REST_INK), hex(REST_FILL))
@@ -152,6 +177,16 @@ check('the rest pill reads apart from --surface', hex(REST_FILL), hex(T.surface)
   console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${asWash.toFixed(2).padStart(6)}  (want < 3)  `
     + 'the rest tone is UNUSABLE as a .mood wash — which is why it is not in PALETTE')
 }
+
+console.log('\n── .mood.is-rest — the rest BADGE, a fill and not a wash ──')
+/* THE GATE ALREADY PROVED THIS TONE CANNOT BE A WASH, and the app fed it to one
+   anyway: `dayKindFor` hands REST_COLOR to `.mood` as its --mood-color, which
+   rendered the "REST" badge at 2.25:1 — the very number asserted just above.
+   The fix is the same shape as .mood-on-dark: an explicit `.is-rest` variant
+   using the tone the one way it works. These two lines stop the call sites
+   drifting back. */
+check('--rest-ink on the .mood.is-rest fill', hex(REST_INK), hex(REST_FILL))
+check('the rest badge reads apart from --surface', hex(REST_FILL), hex(T.surface), 1.08)
 
 console.log('\n── .stat-card — the dashboard tiles, fill is user data ──')
 worstOfPalette('tile ink on its own fill', c => ratio(inkFor(c), c))

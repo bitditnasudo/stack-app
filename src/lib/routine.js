@@ -112,18 +112,24 @@ export const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday',
    no status to encode. `colorUtils.getContrastText` picks the ink, so any
    colour added here stays readable without a second measurement.
 
-   THE SET IS THE REFERENCE PALETTE, MINUS THE ONE ENTRY THAT CANNOT BE AN
-   IDENTITY COLOUR. Gunmetal #243837 measures 1.31:1 as a `.mood` chip, 1.30:1
-   as a week pill and 1.53:1 against the page — those components ink WITH the
-   colour they wash, so a near-black entry is invisible in all three. It is not
-   discarded; it is `REST_COLOR` below, where it is a solid fill under light ink
-   and measures 12.38:1. Every other entry clears AA in all three contexts:
+   THE SET IS THE REFERENCE PALETTE, MINUS GUNMETAL — WHICH IS NOW THE PAGE.
+   Gunmetal was excluded from this list even when it was only a card colour,
+   because `.mood`, `.cat-chip` and `.week-pill` all ink WITH the colour they
+   wash and a near-black entry is invisible in all three. Since the theme swap
+   it is `--bg` itself, so the exclusion is no longer a judgement call: a day
+   coloured Gunmetal would be a day you cannot see.
 
-     Inchworm         9.28 / 8.20 / 15.07
-     Orange           5.10 / 4.76 /  7.12
-     Pale Violet      5.82 / 5.35 /  8.50
-     American Silver  7.91 / 7.03 / 12.39
-     Bright Snow     10.90 / 9.47 / 18.92
+   Measured on the current theme — .mood chip / week pill / against the page:
+
+     Inchworm        11.21 / 10.03 /  9.86
+     Orange           4.63 /  4.40 /  3.96
+     Pale Violet      6.65 /  6.29 /  5.68
+     American Silver  9.30 /  8.36 /  8.11
+     Bright Snow     12.44 / 11.13 / 10.87
+
+   ORANGE IS THE FLOOR AND IT IS WHY THE CARDS ARE DARKER THAN THE PAGE — see
+   note (1) in theme.css. At 4.63:1 it clears AA on a card and would not on any
+   surface lighter than `--surface`.
 
    `scripts/contrast.mjs` re-measures all of it; do not edit this list without
    running it. Note the last two are both near-neutral and are the one pair a
@@ -145,8 +151,14 @@ export const PALETTE = [
  * at the pale end next to a genuinely light day and make the two unreadable
  * against each other. A separate tone makes "nothing today" a different KIND of
  * thing rather than the bottom of a scale.
+ *
+ * IT WAS GUNMETAL UNTIL GUNMETAL BECAME THE PAGE, at which point a rest pill
+ * measured 1.00:1 against its own background and vanished by construction. The
+ * replacement is the one tone in the strip with NO chroma, which is what keeps
+ * it off a ramp made entirely of chromatic washes. Mirrors `--rest-fill` in
+ * theme.css; keep the two in step.
  */
-export const REST_COLOR = '#243837' // Gunmetal — solid fill only, never a wash
+export const REST_COLOR = '#4E6B66' // slate — solid fill only, never a wash
 
 /* ── Ids ─────────────────────────────────────────────────────────────────── */
 let idCounter = 0

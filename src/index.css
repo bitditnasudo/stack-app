@@ -1168,14 +1168,39 @@ button, input, select, textarea { font-family: inherit; }
    heavier wash moves the background toward the text: at 22% the worst palette
    entry (#FF7A5C) measured 4.49:1 and failed. 14% puts the worst case at
    5.26:1. Measured across all eight palette colours, not one. */
+/* THE WASH MIXES INTO --surface, NOT INTO `transparent`, and that is a fix
+   rather than a detail. A transparent mix composites over whatever happens to
+   be behind the chip, so its contrast depended on its backdrop — the same
+   assumption that made .mood measure 1.07:1 on the hero card. Every .mood and
+   .cat-chip in the app renders inside a Card, so the backdrop is stated once
+   here and the chip measures the same everywhere. (The hero still needs
+   .mood-on-dark: that backdrop is BRIGHT, which no wash can absorb.) */
 .mood {
   display: inline-flex; align-items: center; gap: var(--sp-2);
   padding: 6px 13px; border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--mood-color) 14%, transparent);
+  background: color-mix(in srgb, var(--mood-color) 12%, var(--surface));
   color: var(--mood-color);
   font-size: var(--fs-xs); font-weight: 800; letter-spacing: .04em;
 }
 .mood-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+
+/* ── The rest-day chip ───────────────────────────────────────────────────────
+   REST_COLOR IS A FILL, AND `.mood` IS A WASH — so a rest day cannot simply be
+   handed to `.mood` as its `--mood-color`. Doing exactly that rendered the
+   "REST" badge at 2.25:1, which is the same number `scripts/contrast.mjs`
+   asserts when it proves the tone is UNUSABLE as a wash. The gate was right and
+   the call site ignored it.
+
+   This is the same fix as `.mood-on-dark`: an explicit variant that makes the
+   treatment a decision at the call site rather than an assumption inside the
+   component. Used the one way it works — a solid fill under --rest-ink — it
+   measures 5.34:1, and it makes a rest day look like the rest pills in the week
+   strip, which is what it is. */
+.mood.is-rest,
+.cat-chip.is-rest {
+  background: var(--rest-fill);
+  color: var(--rest-ink);
+}
 
 /* ON A SATURATED CARD, the mood colour cannot be shown at all.
    .mood assumes a dark backdrop — it inks with the mood colour on a wash of
@@ -1264,7 +1289,7 @@ button, input, select, textarea { font-family: inherit; }
 .cat-chip, .cat-choice {
   display: inline-flex; align-items: center; gap: var(--sp-2);
   padding: 5px 11px; border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--mood-color) 14%, transparent);
+  background: color-mix(in srgb, var(--mood-color) 12%, var(--surface));
   color: var(--mood-color);
   font-size: var(--fs-xs); font-weight: 700; white-space: nowrap;
 }
