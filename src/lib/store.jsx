@@ -140,11 +140,14 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     if (state.settings.legacyImported) return
     const legacy = readLegacyDays()
+    // NOT stamped. `legacyImported` is a per-device latch, not a user choice, and
+    // stamping `settingsUpdatedAt` here made a FRESH device's settings (still
+    // `onboardingDone: false`) look newer than Drive's — which then synced out
+    // and threw every other device back into the first-run flow.
     setState(s => ({
       ...s,
       items: mergeDayLogs(s.items, legacy),
       settings: { ...s.settings, legacyImported: true },
-      settingsUpdatedAt: now(),
     }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -174,14 +177,18 @@ export function StoreProvider({ children }) {
       const settings = { ...s.settings, libraryDeduped: true }
       const changed = merges.length > 0 || routine !== merged || merged !== s.routine
 
-      if (!changed) return { ...s, settings, settingsUpdatedAt: now() }
+      if (!changed) return { ...s, settings }
+      /* THE ROUTINE STAMP ONLY MOVES IF THE USER HAD ALREADY EDITED IT. On a
+         fresh device this pass runs over the untouched seed, and stamping it
+         "now" made the seed newer than the real routine on Drive — so the first
+         sync REPLACED the user's routine with the example week, on every
+         device. A null stamp loses to any remote routine, which is correct. */
       return {
         ...s,
         routine,
-        routineUpdatedAt: now(),
+        routineUpdatedAt: s.routineUpdatedAt ? now() : null,
         items: rewriteCheckedIds(s.items, routine, merges, rewrites),
         settings,
-        settingsUpdatedAt: now(),
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -419,7 +426,18 @@ export function StoreProvider({ children }) {
         const remote = await downloadSyncFile(fileId).catch(() => null)
 
         if (remote?.state) {
-          const merged = mergeStates(latest.current, remote.state)
+          /* FIRST CONTACT: Drive wins the single-document fields. A device that
+             has never synced (fresh install, reinstall, or iOS evicting
+             storage) holds only defaults, and those must not overwrite the
+             routine and settings the user actually built elsewhere. Day logs
+             still union as always, so nothing logged here is lost. */
+          const local = meta.fileId ? latest.current : {
+            ...latest.current,
+            routineUpdatedAt:  remote.state.routine  ? null : latest.current.routineUpdatedAt,
+            settingsUpdatedAt: remote.state.settings ? null : latest.current.settingsUpdatedAt,
+            profileUpdatedAt:  remote.state.profile  ? null : latest.current.profileUpdatedAt,
+          }
+          const merged = mergeStates(local, remote.state)
 
           applying.current += 1
           setState(merged)
@@ -557,11 +575,23 @@ export function mergeStates(local, remote) {
   // which matters because a tie means the same edit arrived back from sync.
   const routineLocal  = !!local.routineUpdatedAt  && local.routineUpdatedAt  >= (remote.routineUpdatedAt  || '')
 
+  /* Two settings are this DEVICE's one-time migration latches and never come
+     from another device; and `onboardingDone` only ever moves to true — a
+     device mid-onboarding must not be able to send a finished one back
+     through the first-run flow (which ends by overwriting the routine). */
+  const chosen = (settingsLocal ? local.settings : remote.settings) || local.settings
+  const settings = {
+    ...chosen,
+    onboardingDone: !!(local.settings?.onboardingDone || remote.settings?.onboardingDone),
+    legacyImported: !!local.settings?.legacyImported,
+    libraryDeduped: !!local.settings?.libraryDeduped,
+  }
+
   return {
     ...remote, ...local,
     items,
     deleted,
-    settings:          settingsLocal ? local.settings          : remote.settings,
+    settings,
     settingsUpdatedAt: settingsLocal ? local.settingsUpdatedAt : remote.settingsUpdatedAt,
     profile:           profileLocal  ? local.profile           : remote.profile,
     profileUpdatedAt:  profileLocal  ? local.profileUpdatedAt  : remote.profileUpdatedAt,

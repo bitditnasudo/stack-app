@@ -1717,3 +1717,9 @@ button, input, select, textarea { font-family: inherit; }
    viewport: a sticky footer over a sequence you are actively scrolling covers
    the last step, which is the one you just added. */
 .build-nav { margin: var(--sp-4) 0 var(--sp-2); }
+
+/* ── STACK ADDITION: three stats on one row ──────────────────────────────────
+   The kit's .stat-grid wraps at 180px, which on a phone stacked Recap's three
+   short numbers (average / best / streak) into three full-width cards — a
+   third of the screen for three figures. Three numbers always fit one row. */
+.stat-grid.is-trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }

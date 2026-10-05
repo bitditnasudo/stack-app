@@ -76,7 +76,7 @@ export default function BuildWeek() {
   const isLast = at === order.length - 1
   const say = m => setToast(m)
 
-  const finish = () => navigate('/overview', { replace: true })
+  const finish = () => navigate('/', { replace: true })
 
   /* §3.3 — the day is saved as a named template before you move on. In this
      model a day IS a template, so there is no separate "save" step; what the
@@ -93,11 +93,11 @@ export default function BuildWeek() {
     <div className="main-content">
       <PageHeader
         avatar={<ArrowLeft size={20} />}
-        onAvatarClick={() => (at === 0 ? navigate('/overview', { replace: true }) : setAt(at - 1))}
+        onAvatarClick={() => (at === 0 ? navigate('/', { replace: true }) : setAt(at - 1))}
         eyebrow={`Day ${at + 1} of ${order.length}`}
         title={DAY_LABELS[day]}
         actions={
-          <button className="icon-btn" aria-label="Finish and go to Home" onClick={finish}>
+          <button className="icon-btn" aria-label="Finish and go to Today" onClick={finish}>
             <Check size={18} />
           </button>
         }
@@ -126,8 +126,7 @@ export default function BuildWeek() {
       )}
 
       <p className="prose muted" style={{ fontSize: 'var(--fs-xs)' }}>
-        Everything here saves as you go. You can stop at any point and pick the
-        rest up from the routine editor.
+        Saves as you go — stop whenever you like.
       </p>
 
       {naming && (
@@ -217,9 +216,8 @@ function DayChoice({ routine, setRoutine, day, onToast, onSkip }) {
             })}
           </Card>
           <p className="prose muted" style={{ fontSize: 'var(--fs-xs)' }}>
-            <b>Run it</b> shares the routine with the days listed — edit it once
-            and they all change, which is the point of building it once.
-            <b> Copy</b> makes a separate one for {DAY_LABELS[day]} alone.
+            <b>Run it</b> shares it (edit once, all change). <b>Copy</b> makes
+            one for {DAY_LABELS[day]} alone.
           </p>
         </>
       )}
@@ -239,13 +237,15 @@ function DayEditor({ routine, setRoutine, day, tpl, onToast, onRename }) {
   const shared = daysForTemplate(routine, tpl.id)
   const mins = totalDayMinutes(steps)
 
-  /* §3.5 — the mood colour, picked per DAY. It starts on the template's own
-     colour and only diverges when something here is tapped, which is exactly
-     "pre-fill with the template's saved colour but allow override". It writes
-     to `weekColor`, never back to the template, or recolouring Tuesday would
-     recolour every day sharing its routine. */
-  const custom = routine.weekColor?.[day] || null
+  /* The colour is the ROUTINE's, same as in the editor. The per-day override
+     was dropped from the UI as bulk; picking a colour here also clears any
+     override this day still carries, so what you pick is what you see. */
   const colour = dayColorFor(routine, day)
+  const setColour = c => setRoutine(r => {
+    let next = upsertTemplate(r, { ...getTemplate(r, tpl.id), color: c })
+    for (const d of daysForTemplate(next, tpl.id)) next = setDayColor(next, d, null)
+    return next
+  })
 
   return (
     <>
@@ -282,38 +282,19 @@ function DayEditor({ routine, setRoutine, day, tpl, onToast, onRename }) {
         templateId={tpl.id} onToast={onToast}
       />
 
-      <SectionHead title="How this day feels" />
       <Card>
-        {/* THE TWO CONTROLS BELOW HAVE DIFFERENT REACH, and saying so is the
-            whole reason this hint is dynamic. `rest` is a flag on the ROUTINE,
-            so it lands on every day running it; the colour is per DAY. Two
-            controls in one card that look alike and behave differently is
-            exactly how someone marks Sunday as rest and quietly does the same
-            to Wednesday. */}
+        {/* `rest` is a flag on the ROUTINE, so it lands on every day running
+            it — the hint says so when that is more than this one day. */}
         <Toggle
           checked={!!tpl.rest}
           onChange={on => setRoutine(r => upsertTemplate(r, { ...getTemplate(r, tpl.id), rest: on }))}
-          label="This is a rest day"
-          hint={shared.length > 1
-            ? `Applies to the whole routine — ${daysSummary(shared)} all become rest days.`
-            : 'Shown in its own colour on the week strip, off the busy-ness scale.'}
+          label="Rest day"
+          hint={shared.length > 1 ? `Applies to ${daysSummary(shared)}.` : undefined}
         />
-        <Field
-          label="Colour"
-          hint={tpl.rest
-            ? 'A rest day always shows the rest colour, so this only applies if you turn rest off.'
-            : (custom ? `Chosen for ${DAY_LABELS[day]} only.` : "Currently the routine's own colour.")}
-        >
-          <ColorPicker
-            value={colour}
-            onChange={c => setRoutine(r => setDayColor(r, day, c))}
-            palette={PALETTE}
-          />
-        </Field>
-        {custom && (
-          <Button variant="secondary" block onClick={() => setRoutine(r => setDayColor(r, day, null))}>
-            Use the routine&rsquo;s colour
-          </Button>
+        {!tpl.rest && (
+          <Field label="Colour">
+            <ColorPicker value={colour} onChange={setColour} palette={PALETTE} />
+          </Field>
         )}
       </Card>
     </>

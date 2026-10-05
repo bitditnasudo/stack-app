@@ -8,7 +8,7 @@
    theme.css knows what colour this app is.
    ========================================================================== */
 
-import { ListChecks, PieChart, CalendarRange, Settings } from 'lucide-react'
+import { ListChecks, CalendarRange, Settings } from 'lucide-react'
 
 export const APP_NAME  = 'STACK'
 export const APP_SHORT = 'STACK'
@@ -19,9 +19,10 @@ export const APP_SHORT = 'STACK'
 export const STORAGE_KEY = 'stack:v1'
 
 /**
- * Four tabs, so the bar marks itself dense: inactive tabs drop to icons and the
- * active tab keeps its label inside its pill. There is no action pill — STACK
- * has no "create" verb, its records are generated from the protocol.
+ * Three tabs. Home was removed: it re-showed Today's score three ways (ring,
+ * meter, badge), an "up next" card pointing back at Today, and a heatmap that
+ * Recap already has. Its one unique reading — day elapsed vs stack done — now
+ * sits in Today's hero. Three tabs also keep every label visible on a phone.
  *
  * Notifications live inside Settings rather than as a fifth tab. Five tabs is
  * over the kit's limit, and the old app's "Notify" page was a permission
@@ -29,7 +30,6 @@ export const STORAGE_KEY = 'stack:v1'
  */
 export const NAV_ITEMS = [
   { icon: ListChecks,    label: 'Today',    to: '/' },
-  { icon: PieChart,      label: 'Home',     to: '/overview' },
   { icon: CalendarRange, label: 'Recap',    to: '/recap' },
   { icon: Settings,      label: 'Settings', to: '/settings' },
 ]

@@ -245,16 +245,17 @@ export function StepSheet({ routine, setRoutine, templateId, step, onEditHabit, 
 
   return (
     <Sheet title={habit.name} onClose={onClose}>
-      <Card>
-        <div className="row row-tight">
-          <span className="row-icon" style={{ color: step.category?.color }}><Glyph size={18} /></span>
-          <div className="grow">
-            <b>{habit.name}</b>
-            {habit.detail && <div className="muted">{habit.detail}</div>}
+      {/* The name is already the sheet title; this card only carries what the
+          title does not. */}
+      {(habit.detail || habit.duration > 0) && (
+        <Card>
+          <div className="row row-tight">
+            <span className="row-icon" style={{ color: step.category?.color }}><Glyph size={18} /></span>
+            <div className="grow muted">{habit.detail}</div>
+            {habit.duration > 0 && <Tag tone="neutral"><Hourglass />{formatWait(habit.duration)}</Tag>}
           </div>
-          {habit.duration > 0 && <Tag tone="neutral"><Hourglass />{formatWait(habit.duration)}</Tag>}
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* THE OVERRIDE IS PER STEP AND IT IS WHAT MADE THE LIBRARY DEDUPE
           LOSSLESS. One "LUMACA Cleanser" sits at 06:30 in the morning stack and
@@ -276,19 +277,18 @@ export function StepSheet({ routine, setRoutine, templateId, step, onEditHabit, 
 
       <Button block onClick={save}>Save step</Button>
 
-      <Button variant="secondary" block style={{ marginTop: 'var(--sp-2)' }} onClick={onEditHabit}>
-        Edit the habit itself
-      </Button>
-      <p className="prose muted" style={{ fontSize: 'var(--fs-xs)' }}>
-        That changes it everywhere — it&rsquo;s currently on {usedIn.length
-          ? daysSummary(usedIn) : 'no day'}.
-      </p>
-
-      <Button variant="danger" block onClick={() => {
-        setRoutine(r => removeStep(r, templateId, step.id)); onToast('Removed.'); onClose()
-      }}>
-        Remove from this day
-      </Button>
+      {/* "Edit habit" is labelled with its reach, because it changes every
+          day the habit is on — not just this occurrence. */}
+      <div className="field-row" style={{ marginTop: 'var(--sp-2)' }}>
+        <Button variant="secondary" block onClick={onEditHabit}>
+          Edit habit{usedIn.length ? ` (${daysSummary(usedIn)})` : ''}
+        </Button>
+        <Button variant="danger" block onClick={() => {
+          setRoutine(r => removeStep(r, templateId, step.id)); onToast('Removed.'); onClose()
+        }}>
+          Remove
+        </Button>
+      </div>
     </Sheet>
   )
 }
@@ -330,12 +330,6 @@ export function HabitPicker({ routine, templateId, onPick, onNew, onClose }) {
           )
         })}
       </Card>
-      <p className="prose muted" style={{ fontSize: 'var(--fs-xs)' }}>
-        A step lands in the position its time implies, so you rarely have to
-        reorder by hand. Adding one you already have puts it in the day a second
-        time — that is how four glasses of water are four steps, and each gets
-        ticked on its own.
-      </p>
     </Sheet>
   )
 }

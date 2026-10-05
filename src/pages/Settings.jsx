@@ -1,6 +1,12 @@
 /* ============================================================================
-   SETTINGS — notifications, backup, and the build stamp.
+   SETTINGS — you, reminders, backup, and the build stamp.
    ============================================================================
+   Trimmed to one card per job. Reminders were two cards (status + schedule)
+   with a paragraph of caveats; Backup was a Drive card, an Export/Import card
+   with a row of explanation per button, and an Erase card. The "build the week
+   step by step" row is gone — the guided builder is part of first run, and
+   the editor does everything it does.
+
    The old app's "Notify" tab lived here in everything but name: a permission
    button and a read-only schedule. Folded in, which keeps the nav at four tabs.
 
@@ -13,7 +19,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Bell, BellOff, Download, Upload, Trash2, Clock, SlidersHorizontal, ChevronRight, CalendarPlus,
+  Bell, BellOff, Download, Upload, Trash2, Clock, SlidersHorizontal, ChevronRight,
   Cloud, CloudOff, RefreshCw, ExternalLink, AlertTriangle,
 } from 'lucide-react'
 import { PageHeader } from '../components/AppShell.jsx'
@@ -130,17 +136,12 @@ export default function Settings() {
         </Card>
       )}
 
-      {/* ── You ───────────────────────────────────────────────────────────────
-          Everything the first-run flow asked for, in one place, so a device
-          that skipped onboarding — or one that upgraded straight past it and
-          was never asked — has somewhere to answer.
-
-          THE WAKE/SLEEP PAIR IS WHAT THE HOME BAR MEASURES AGAINST. Until both
-          are set, `dayProgress` returns null and the dashboard shows the ring
-          alone rather than a bar sitting at a default nobody chose. */}
+      {/* ── You ─────────────────────────────────────────────────────────────
+          Wake and sleep drive the "% of your day gone" line on Today; until both
+          are set that line is absent rather than measured against a default. */}
       <SectionHead title="You" />
       <Card>
-        <Field label="Name" hint="Used for the greeting on Home. Nothing else reads it.">
+        <Field label="Name">
           <input
             value={state.profile?.name || ''}
             placeholder="Your name"
@@ -149,109 +150,62 @@ export default function Settings() {
           />
         </Field>
         <div className="field-row">
-          <Field label="I wake up at">
+          <Field label="Wake up">
             <input type="time" value={state.settings.wakeTime || ''}
                    onChange={e => setSettings({ wakeTime: e.target.value })} />
           </Field>
-          <Field label="I go to bed at">
+          <Field label="Bedtime">
             <input type="time" value={state.settings.sleepTime || ''}
                    onChange={e => setSettings({ sleepTime: e.target.value })} />
           </Field>
         </div>
-        <p className="prose muted" style={{ fontSize: 'var(--fs-xs)', marginBottom: 0 }}>
-          {state.settings.wakeTime && state.settings.sleepTime
-            ? 'Home shows how much of your waking day has gone beside how much of your stack is done.'
-            : 'Set both to see the “day elapsed” bar on Home. A bedtime after midnight is fine.'}
-        </p>
-      </Card>
-
-      {/* ── Routine ───────────────────────────────────────────────────────────
-          Above reminders, because reminders are DERIVED from it: this is the
-          control that changes the rest of this page. */}
-      <SectionHead title="Protocol" />
-      <Card>
         <button className="list-row nav-row" onClick={() => navigate('/routine')}>
           <span className="row-icon"><SlidersHorizontal size={16} /></span>
           <span className="grow">
             <b>Edit routine</b>
             <small>
               {routine.habits.length} habit{routine.habits.length === 1 ? '' : 's'} ·{' '}
-              {routine.templates.length} day{routine.templates.length === 1 ? '' : 's'} ·{' '}
-              {routine.categories.length} categories
+              {routine.templates.length} routine{routine.templates.length === 1 ? '' : 's'}
             </small>
-          </span>
-          <ChevronRight size={18} />
-        </button>
-        {/* The guided builder is re-runnable, not a one-shot part of first run.
-            It is the right surface whenever the week is being rebuilt rather
-            than adjusted — the editor is for "change this one thing", this is
-            for "start again from Monday". */}
-        <button className="list-row nav-row" onClick={() => navigate('/build?day=1')}>
-          <span className="row-icon"><CalendarPlus size={16} /></span>
-          <span className="grow">
-            <b>Build the week step by step</b>
-            <small>One day at a time, from Monday — the guided version.</small>
           </span>
           <ChevronRight size={18} />
         </button>
       </Card>
 
-      {/* ── Notifications ─────────────────────────────────────────────────── */}
-      <SectionHead title="Reminders" />
+      {/* ── Reminders — one card: status, the switch, and what will fire. ── */}
+      <SectionHead title="Reminders" sub={perm === 'granted' ? `${armed.length} left today` : undefined} />
       <Card>
         <div className="row row-tight">
           <span className={`row-icon${perm === 'denied' ? ' row-icon-danger' : ''}`}>
             {perm === 'granted' ? <Bell size={16} /> : <BellOff size={16} />}
           </span>
-          <div className="grow">
-            <b>Protocol reminders</b>
-            <div className="muted">
-              {!supportsNotifications() ? 'This browser does not support notifications.'
-                : perm === 'granted' ? `${armed.length} armed for the rest of today.`
-                : perm === 'denied'  ? 'Blocked. Re-allow in your browser’s site settings.'
-                : 'Off — a nudge before the habits you set a time on.'}
-            </div>
+          <div className="grow muted">
+            {!supportsNotifications() ? 'Not supported in this browser.'
+              : perm === 'granted' ? 'On. Only fires while STACK is open or in the background.'
+              : perm === 'denied'  ? 'Blocked — re-allow in your browser’s site settings.'
+              : 'Off.'}
           </div>
-          {perm === 'granted'
-            ? <Tag tone="ok">On</Tag>
-            : <Tag tone={perm === 'denied' ? 'danger' : 'neutral'}>Off</Tag>}
+          {supportsNotifications() && perm === 'default' && (
+            <Button size="sm" onClick={onEnable}>Enable</Button>
+          )}
         </div>
-
-        {supportsNotifications() && perm === 'default' && (
-          <Button block onClick={onEnable}>Enable reminders</Button>
-        )}
-
-        {/* Stated plainly, because the original implied a reliability it never
-            had. Timers live in the page; a closed app fires nothing. */}
-        <p className="prose muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 'var(--sp-3)' }}>
-          Reminders are scheduled inside the app, so they only fire while STACK is
-          open or backgrounded. If the phone closes it, that day&rsquo;s remaining
-          reminders are lost until you open it again.
-        </p>
-      </Card>
-
-      <Card>
         {schedule.length === 0 ? (
-          <div className="muted">
-            No reminders yet — give a habit a time and a reminder under
-            <b>Edit routine</b> and it will show up here.
+          <div className="muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 'var(--sp-2)' }}>
+            Give a habit a time and a reminder and it shows up here.
           </div>
         ) : schedule.map(n => (
           <div className="list-row" key={n.id}>
-            <div className="grow">
-              {n.title}
-              <small>{n.body}</small>
-            </div>
+            {/* The body (the names, in order) only. The title is the
+                notification's own headline — "Creatine soon" — and printed
+                above the body it just said the same name twice. */}
+            <div className="grow">{n.body}</div>
             <Tag tone="neutral"><Clock />{formatFireTime(n)}</Tag>
           </div>
         ))}
       </Card>
 
-      {/* ── Google Drive ──────────────────────────────────────────────────────
-          Above the manual export, because it supersedes it as the everyday
-          answer to "where is my data". The file export stays as the offline
-          escape hatch and as the bridge for the old GitHub Pages history. */}
-      <SectionHead title="Backup" />
+      {/* ── Backup — Drive first, the file export as the offline escape hatch. */}
+      <SectionHead title="Backup" sub={`${dayCount} day${dayCount === 1 ? '' : 's'} logged`} />
       <Card>
         <div className="row row-tight">
           <span className={`row-icon${sync.connected ? '' : ' row-icon-danger'}`}>
@@ -261,116 +215,64 @@ export default function Settings() {
             <b>Google Drive</b>
             <div className="muted">
               {!sync.configured
-                ? 'Not configured — VITE_GOOGLE_CLIENT_ID is missing from this build.'
+                ? 'Not available in this build.'
                 : sync.connected
-                  ? `Your routine and every logged day sync as one JSON file.${
-                      sync.lastSyncedAt ? ` Last sync ${new Date(sync.lastSyncedAt).toLocaleTimeString()}.` : ''}`
+                  ? (sync.lastSyncedAt ? `Synced ${new Date(sync.lastSyncedAt).toLocaleTimeString()}` : 'Connected')
                   : sync.lastSyncedAt
-                    ? `Session expired — reconnect to resume. Your data is safe on this device. Last sync ${new Date(sync.lastSyncedAt).toLocaleTimeString()}.`
-                    : 'Off — your data lives only on this device.'}
+                    ? 'Session expired — reconnect. Your data is safe on this device.'
+                    : 'Off — data lives only on this device.'}
             </div>
           </div>
-          {sync.connected
-            ? <Tag tone="ok">On</Tag>
-            : <Tag tone="neutral">Off</Tag>}
+          {sync.configured && sync.connected && (
+            <button className="icon-btn" aria-label="Sync now" disabled={sync.busy} onClick={syncNow}>
+              {sync.busy ? <Spinner size={16} /> : <RefreshCw size={16} />}
+            </button>
+          )}
         </div>
 
-        {sync.configured && (sync.connected ? (
-          <>
-            <Button variant="secondary" block disabled={sync.busy} onClick={syncNow}>
-              {sync.busy ? <Spinner size={14} /> : <RefreshCw size={14} />}
-              {sync.busy ? 'Syncing…' : 'Sync now'}
-            </Button>
-            <Button variant="plain" block onClick={disconnectGoogle} style={{ marginTop: 'var(--sp-2)' }}>
-              Disconnect
-            </Button>
-          </>
-        ) : (
+        {sync.configured && !sync.connected && (
           <Button block onClick={connectGoogle}>
             <Cloud size={14} />
             {sync.lastSyncedAt ? 'Reconnect Google Drive' : 'Connect Google Drive'}
           </Button>
-        ))}
-
-        {/* Which folder it is ACTUALLY writing to. `pinned: false` means the
-            configured folder could not be reached and the app made its own —
-            silently writing somewhere other than where you pointed it would be
-            worse than failing, so it says so and links to the real one. */}
-        {sync.folder && (
-          <div className="row row-tight" style={{ marginTop: 'var(--sp-3)' }}>
-            <div className="grow">
-              <a className="link-row" href={folderUrl(sync.folder.id)} target="_blank" rel="noreferrer">
-                {sync.folder.name} <ExternalLink size={13} />
-              </a>
-              {!sync.folder.pinned && (
-                <div className="muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 'var(--sp-1)' }}>
-                  <AlertTriangle size={12} /> This is a folder STACK created. The
-                  configured folder could not be opened with the permission this
-                  app asks for &mdash; see CLAUDE.md &rarr; Drive sync.
-                </div>
-              )}
-            </div>
-          </div>
         )}
 
         {sync.error && (
-          <p className="prose" style={{ fontSize: 'var(--fs-xs)', color: 'var(--danger-ink)', marginTop: 'var(--sp-3)' }}>
+          <p className="prose" style={{ fontSize: 'var(--fs-xs)', color: 'var(--danger-ink)', marginTop: 'var(--sp-2)' }}>
             {sync.error}
           </p>
         )}
 
-        <p className="prose muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 'var(--sp-3)' }}>
-          Devices <b>merge</b> rather than overwrite: a phone that has been
-          offline can add the days it logged, but it can never delete days it
-          never saw. The routine itself is a single document, so the most recent
-          edit to it wins.
-        </p>
+        {sync.connected && (
+          <div className="row row-tight" style={{ marginTop: 'var(--sp-2)' }}>
+            {sync.folder && (
+              <a className="link-row grow" href={folderUrl(sync.folder.id)} target="_blank" rel="noreferrer">
+                {sync.folder.name} <ExternalLink size={13} />
+              </a>
+            )}
+            <Button size="sm" variant="plain" onClick={disconnectGoogle}>Disconnect</Button>
+          </div>
+        )}
+
+        <div className="field-row" style={{ marginTop: 'var(--sp-3)' }}>
+          <Button variant="secondary" block onClick={onExport}><Download size={14} /> Export</Button>
+          <Button variant="secondary" block onClick={() => { setImporting(true); setError(null) }}>
+            <Upload size={14} /> Restore
+          </Button>
+        </div>
       </Card>
 
-      {/* ── Data ──────────────────────────────────────────────────────────── */}
-      <SectionHead title="Data" sub={`${dayCount} day${dayCount === 1 ? '' : 's'} logged`} />
-      <Card>
-        <div className="row row-tight">
-          <span className="row-icon"><Download size={16} /></span>
-          <div className="grow">
-            <b>Export backup</b>
-            <div className="muted">A JSON file of every logged day.</div>
-          </div>
-        </div>
-        <Button variant="secondary" block onClick={onExport}>Download backup</Button>
-
-        <div className="row row-tight" style={{ marginTop: 'var(--sp-4)' }}>
-          <span className="row-icon"><Upload size={16} /></span>
-          <div className="grow">
-            <b>Import</b>
-            <div className="muted">Merges by date — importing twice is harmless.</div>
-          </div>
-        </div>
-        <Button variant="secondary" block onClick={() => { setImporting(true); setError(null) }}>
-          Restore from backup
-        </Button>
-      </Card>
-
-      <Card variant="danger">
-        <div className="row row-tight">
-          <span className="row-icon row-icon-danger"><Trash2 size={16} /></span>
-          <div className="grow">
-            <b>Erase everything</b>
-            <div className="muted">Deletes all logged days on this device.</div>
-          </div>
-        </div>
-        <Button
-          variant="danger" block
-          onClick={() => {
-            if (confirm('Erase all STACK data on this device? Export a backup first.')) {
-              resetAll()
-              setToast('All data erased.')
-            }
-          }}
-        >
-          Erase all data
-        </Button>
-      </Card>
+      <Button
+        variant="danger" block
+        onClick={() => {
+          if (confirm('Erase all STACK data on this device — every logged day and your routine? Export a backup first.')) {
+            resetAll()
+            setToast('All data erased.')
+          }
+        }}
+      >
+        <Trash2 size={14} /> Erase all data on this device
+      </Button>
 
       <Signature>
         {`v${VERSION_LABEL}`}

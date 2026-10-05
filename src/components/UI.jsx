@@ -457,16 +457,21 @@ export function StepCard({ done, name, detail, time, duration, glyph, category, 
       )}
       <span className="step-body">
         <span className="step-name">{name}</span>
-        {detail && <span className="step-detail">{detail}</span>}
-        <span className="step-meta">
-          {time && <span className="step-chip"><Clock size={11} />{time}</span>}
-          {/* A duration of 0 means "not measured", not "instant" — printing
-              "0 min" on two thirds of a stack would be noise claiming to be
-              data. */}
-          {duration > 0 && <span className="step-chip"><Hourglass size={11} />{duration} min</span>}
-          {category && <span className="step-chip">{category.label}</span>}
-        </span>
-        {warn && <span className="step-warn">{warn}</span>}
+        {/* A FINISHED ROW COLLAPSES to its name. Its detail and warning are
+            instructions for doing it, which stop mattering once it is done —
+            and keeping them made a ticked-off morning as tall as an untouched
+            one, pushing the remaining work further down the screen. */}
+        {detail && !done && <span className="step-detail">{detail}</span>}
+        {/* No category chip: the card's colour and glyph already say it, and a
+            third copy of the same fact on every row was the bulkiest line. A
+            duration of 0 means "not measured", so it prints nothing. */}
+        {!done && (time || duration > 0) && (
+          <span className="step-meta">
+            {time && <span className="step-chip"><Clock size={11} />{time}</span>}
+            {duration > 0 && <span className="step-chip"><Hourglass size={11} />{duration} min</span>}
+          </span>
+        )}
+        {warn && !done && <span className="step-warn">{warn}</span>}
       </span>
     </button>
   )

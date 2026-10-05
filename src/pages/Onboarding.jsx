@@ -41,8 +41,11 @@ const STEP_COUNT = 5
 
 export default function Onboarding() {
   const navigate = useNavigate()
-  const { sync, connectGoogle, setSettings, setProfile, setRoutine } = useStore()
-  const [step, setStep] = useState(0)
+  const { state, sync, connectGoogle, setSettings, setProfile, setRoutine } = useStore()
+  /* Coming back from Google's sign-in reloads the page, which used to restart
+     this flow at the name screen. Already connected means that round trip just
+     happened, so resume on the Drive screen where it left off. */
+  const [step, setStep] = useState(() => (sync.connected ? 1 : 0))
 
   const [name, setName] = useState('')
   const [wake, setWake] = useState('07:00')
@@ -183,7 +186,10 @@ export default function Onboarding() {
         </>
       )}
 
-      {step === 4 && <WeekChoice startDay={startDay} onFinish={finish} />}
+      {step === 4 && (
+        <WeekChoice startDay={startDay} onFinish={finish}
+                    synced={sync.connected && !!state.routineUpdatedAt} />
+      )}
     </div>
   )
 }
@@ -196,7 +202,7 @@ export default function Onboarding() {
    seed still carries the AM/PM duplicate pairs because its ids are the frozen
    storage contract; every path that introduces it has to fold them, or a fresh
    install starts life holding the exact workaround the migration removes. */
-function WeekChoice({ startDay, onFinish }) {
+function WeekChoice({ startDay, onFinish, synced }) {
   const preview = defaultRoutine()
   const seeded = () => dedupeLibrary(defaultRoutine()).routine
 
@@ -226,8 +232,20 @@ function WeekChoice({ startDay, onFinish }) {
         })}
       </div>
 
+      {/* A ROUTINE ALREADY CAME DOWN FROM DRIVE. Both "start" buttons below
+          REPLACE the routine, so offering them first is how a reinstall wiped
+          the week the user had built on another device. Keeping it is the
+          default; the other two stay available underneath. */}
+      {synced && (
+        <div className="onboard-actions">
+          <Button onClick={() => onFinish(null, '/')}>
+            Use my routine from Google Drive
+          </Button>
+        </div>
+      )}
+
       <div className="onboard-actions">
-        <Button onClick={() => onFinish(seeded(), into)}>
+        <Button variant={synced ? 'secondary' : 'primary'} onClick={() => onFinish(seeded(), into)}>
           Start from the example week
         </Button>
         <Button variant="secondary" onClick={() => onFinish(blankRoutine(), into)}>

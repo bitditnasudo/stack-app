@@ -4,12 +4,15 @@
    Forward navigation stops at the current week: there is nothing to recap about
    a week that hasn't happened, and letting the offset go positive produced a
    grid of seven "no data" cells that read like lost history.
+
+   No heatmap: it drew the same seven percentages the day-by-day rows print
+   (with their done/total and the day's routine), so it was the week twice.
    ========================================================================== */
 
 import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, CalendarRange } from 'lucide-react'
 import { PageHeader } from '../components/AppShell.jsx'
-import { Card, SectionHead, Heatmap, Progress, Tag, Empty } from '../components/UI.jsx'
+import { Card, SectionHead, Progress, Tag, Empty } from '../components/UI.jsx'
 import { useStore } from '../lib/store.jsx'
 import { buildWeek, weekStats } from '../lib/weeks.js'
 import { getWeekStartMonday, formatWeekRange } from '../lib/dates.js'
@@ -44,11 +47,7 @@ export default function Recap() {
         </button>
       </div>
 
-      <Card>
-        <Heatmap days={week} />
-      </Card>
-
-      <div className="stat-grid">
+      <div className="stat-grid is-trio">
         <div className="stat">
           <div className="stat-value">{stats.avg !== null ? `${stats.avg}%` : '—'}</div>
           <div className="stat-label">Average</div>

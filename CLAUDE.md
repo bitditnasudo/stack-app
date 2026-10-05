@@ -559,48 +559,74 @@ src/
     BuildWeek.jsx        ★ the GUIDED builder — one weekday per screen, walked
                          from the day onboarding picked. /build?day=N
     Today.jsx            the day as a flat coloured sequence
-    Overview.jsx         ★ HOME — greeting, week pills, both meters, three cards
-                         (the file keeps its name; the tab and route do not —
-                         see "Navigation" below)
     Recap.jsx            any week, navigable backwards
-    Routine.jsx          ★ the editor — Week / Routines / Habits / Categories
+    Routine.jsx          ★ the editor — Week (days + routines) / Habits / Categories
     Settings.jsx         routine link, reminders, Drive, backup, erase, stamp
     AuthCallback.jsx     where Google drops the token
 verify.mjs               195 domain + engine + migration assertions
 ```
 
-### Navigation is four tabs, and four is the ceiling
+### Navigation is three tabs — Home was removed (v2.12 audit)
 
-`Today · Home · Recap · Settings`. **The tab reads "Home"; the route is still
-`/overview` and the file is still `Overview.jsx`** — a path is an address, and
-renaming one breaks every link that ever pointed at it for a word nobody sees.
+`Today · Recap · Settings`. **Home (`Overview.jsx`) is gone** and `/overview`
+redirects to `/`. It showed Today's score three times (ring, "stack done"
+meter, badge), an "up next" tile that linked back to Today, supplement and
+workout tiles that were just two rows of its own "By category" card, and a
+heatmap Recap already had. Its one unique reading — **% of the waking day
+gone** beside % done — is a line in Today's hero now. Do not bring the tab
+back to hold a dashboard; if a reading is missing, add a line to Today.
 
-At four the nav bar marks itself dense:
-inactive tabs drop to icons, the active tab keeps its label inside its pill.
-Five would overflow. The old app's separate "Notify" page was a permission
-button plus a read-only schedule — settings content wearing a tab — so it was
-folded into Settings.
+Other cuts from the same audit, each because it repeated something on screen:
 
-There is **no FAB** — but the reason changed. STACK *gained* a create verb when
-the protocol became editable; it just belongs to one screen rather than to the
-shell. A global "+" on the checklist would sit beside fifteen things that are
-ticked, not created, and its meaning would change from tab to tab. `Routine`
-carries its own add buttons, in the section the thing belongs to — including
-the two inside a day, "Step" and "Wait", which is where you are when you want
-them.
+- **Recap** dropped its heatmap (the day-by-day rows print the same seven
+  numbers with more context); its three stats sit on one row (`.is-trio`).
+- **Today**: no mood badge in the hero (the title is the same word), one toast
+  at "all done" instead of every fifth tick, and **a ticked StepCard collapses
+  to its name** (no detail, chips or warning) so the list shrinks as you go.
+  StepCards no longer print the category label — colour and glyph carry it.
+- **Settings**: one Reminders card, one Backup card (Drive + Export/Restore),
+  Erase as a single button; "Build the week step by step" row removed (the
+  guided builder is still `/build`, reached from onboarding).
 
-**`/routine` is a sub-page, not a fifth tab** — the bar is full at four. It is
-reached from the sliders icon on Today (where you notice a step is missing) and
-from the top of Settings (where you go looking for it).
+There is **no FAB**. `/routine` is a sub-page, reached from the sliders icon on
+Today and from Settings → Edit routine.
 
-**The editor itself went from three tabs to four**, which is the `Segmented`
-control's own ceiling: `Week · Routines · Habits · Categories`. Routines earned
-one because a template gained a life of its own — before v3 it was reachable
-only THROUGH a weekday that ran it, so one sitting on no day could be created
-and then never found again, and "rename" meant opening a twenty-step sequence
-editor to retype one field. The old "Not in the week" list at the foot of the
-Week tab existed to paper over exactly that; it is now a one-line pointer at the
-tab that holds every routine whether or not a day runs it.
+**The editor is three tabs: `Week · Habits · Categories`.** Week shows the
+seven days AND the list of every routine (including ones on no day); both open
+the same sheet. The old separate Routines tab and its "Quick actions" card
+(which listed every routine a third time for Rename/Copy) are gone — rename is
+the sheet's name field, Duplicate and Delete are at its foot.
+
+**THE ROUTINE SHEET SAVES AS YOU EDIT — this was the "routine doesn't save"
+bug.** It used to keep name/days/colour/rest in a draft committed by a Save
+button, and that button `upsertTemplate`d the draft — including the STALE copy
+of `steps` taken when the sheet opened — over the live template. Every step
+added, moved or removed in the sheet was silently reverted on Save (and a new
+routine was wiped to empty). Every field now patches the CURRENT template
+inside the `setRoutine` updater. **Never upsert a template from a copy held in
+component state.**
+
+**The per-day colour override has no UI any more.** `weekColor` is still read
+by `dayColorFor` and still asserted in `verify.mjs`, but picking a routine's
+colour (editor or builder) now also clears the overrides on its days, so what
+you pick is what you see.
+
+### Sync: a fresh device must never win the routine
+
+The second half of the save bug. On a fresh install (or after iOS evicts
+storage) the one-time migrations used to stamp `routineUpdatedAt` and
+`settingsUpdatedAt` with "now" over the untouched seed. The first Drive sync
+then judged the SEED newer than the user's real routine and pushed it over
+Drive — and the fresh device's `onboardingDone: false` too, which sent other
+devices back through onboarding, whose last button replaces the routine.
+Now:
+
+- the migrations do not stamp anything the user did not change;
+- on **first contact** (no `fileId` in `stack:sync`), Drive wins routine,
+  settings and profile; day logs still union;
+- `mergeStates` keeps `legacyImported` / `libraryDeduped` per device and only
+  lets `onboardingDone` move to true;
+- onboarding offers "Use my routine from Google Drive" first when one arrived.
 
 Two density rules came out of a critique pass in v2.2, both measured:
 

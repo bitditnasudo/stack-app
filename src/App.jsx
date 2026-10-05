@@ -16,8 +16,8 @@
    created, and its meaning would change per tab. The routine editor carries its
    own add buttons, one per section, where the thing being added is unambiguous.
 
-   /routine is a sub-page, not a fifth tab: the nav bar is full at four and the
-   kit drops inactive labels to icons at exactly that count.
+   /routine is a sub-page, not a fifth tab: it is reached from Today and Settings,
+   and is not somewhere you go daily.
    ========================================================================== */
 
 import { useEffect } from 'react'
@@ -25,7 +25,6 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import { StoreProvider, useStore } from './lib/store.jsx'
 import { AppShell } from './components/AppShell.jsx'
 import Today from './pages/Today.jsx'
-import Overview from './pages/Overview.jsx'
 import Recap from './pages/Recap.jsx'
 import Settings from './pages/Settings.jsx'
 import Routine from './pages/Routine.jsx'
@@ -51,7 +50,8 @@ export default function App() {
               <AppShell>
                 <Routes>
                   <Route path="/"         element={<Today />} />
-                  <Route path="/overview" element={<Overview />} />
+                  {/* Home was folded into Today; old links and installed shortcuts land there. */}
+                  <Route path="/overview" element={<Navigate to="/" replace />} />
                   <Route path="/recap"    element={<Recap />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/routine"  element={<Routine />} />
